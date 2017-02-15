@@ -17,6 +17,7 @@ static int fALen = 0;
 static int fBLen = 0;
 static int fCLen = 0;
 static int fLen = 0;
+static int longestLine = 0;
 static char *fileA;
 static char *fileB;
 static char *fileC;
@@ -33,24 +34,24 @@ static char bufTS[1024];
 
 /* ints for timestamp counting */
 static int tsFirst[86400]; // first instance of a timestamp
-static int tsFirstA[86400]; // first instance of a timestamp file A
-static int tsFirstB[86400]; // first instance of a timestamp file B
+//static int tsFirstA[86400]; // first instance of a timestamp file A
+//static int tsFirstB[86400]; // first instance of a timestamp file B
 static int tsLast[86400]; // last instance of a timestamp
-static int tsLastA[86400]; // last instance of a timestamp file A
-static int tsLastB[86400]; // last instance of a timestamp file B
+//static int tsLastA[86400]; // last instance of a timestamp file A
+//static int tsLastB[86400]; // last instance of a timestamp file B
 static int tsUnique = 0; // buffer for unique timestamps.
-static int tsUniqueA = 0; // unique timestamps in file A
-static int tsUniqueB = 0; // unique timestamps in file B
+//static int tsUniqueA = 0; // unique timestamps in file A
+//static int tsUniqueB = 0; // unique timestamps in file B
 
 // slightly different naming for arrays
-static char timeStamps[86400][1024];
-static char timeStampsA[86400][1024];
-static char timeStampsB[86400][1024];
-static int timeStampCounts[86400]; // 0 = count, 1 = first, 2 = last
-static int timeStampCountsA[86400]; // 0 = count, 1 = first, 2 = last
-static int timeStampCountsB[86400]; // 0 = count, 1 = first, 2 = last
+char timeStamps[86400][1024];
+//char timeStampsA[86400][1024];
+//char timeStampsB[86400][1024];
+int timeStampCounts[86400]; 
+//int timeStampCountsA[86400];
+//int timeStampCountsB[86400];
 
-int housekeeping()
+void housekeeping()
 {
     // resetting some reusable vars just for good measure.
     int count = 0;
@@ -58,30 +59,30 @@ int housekeeping()
     {
         while (count > fALen)
         {
-            tsFirst[count] = 0;
-            tsLast[count] = 0;
-            strcpy(timeStamps[count], "\0");
-            timeStampCounts[count] = 0; 
+            free((char*)&tsFirst[count]);
+            free((char*)&tsLast[count]);
+            //free((char*)&timeStamps[count]);
+            //free((char*)&timeStampCounts[count]); 
             count++;
         }
     } else if (fALen > fBLen)
     {
         while (count > fALen)
         {
-            tsFirst[count] = 0;
-            tsLast[count] = 0;
-            strcpy(timeStamps[count], "\0");
-            timeStampCounts[count] = 0; 
+            free((char*)&tsFirst[count]);
+            free((char*)&tsLast[count]);
+            //free((char*)&timeStamps[count]);
+            //free((char*)&timeStampCounts[count]); 
             count++;
         }
     } else
     {
         while (count > fALen)
         {
-            tsFirst[count] = 0;
-            tsLast[count] = 0;
-            strcpy(timeStamps[count], "\0");
-            timeStampCounts[count] = 0; 
+            free((char*)&tsFirst[count]);
+            free((char*)&tsLast[count]);
+            //free((char*)&timeStamps[count]);
+            //free((char*)&timeStampCounts[count]); 
             count++;
         }
     }
@@ -96,6 +97,7 @@ int housekeeping()
     strcpy(compTS, "\0");
     strcpy(bufTS, "\0");
     count = 0;
+    return;
 }
     
     
@@ -106,10 +108,33 @@ int getFileInfo(char *file)
 {
     // set and reset variables
     int count = 0;
+    fLen = 0;
+    longestLine = 0;
+    // open file
+    FILE *fp;
+    fp = fopen(file, "r");
+    if ( fp == 0 ) 
+    {
+        printf( "ERROR: File %s was not able to be accessed. Terminating. \n", file);
+        exit(0); 
+    }
+    // count file length and longest line
+    while (fgets(line, sizeof line, fp) !=NULL)
+    {
+        fLen++;
+        if (strlen(line) > longestLine) longestLine = strlen(line);
+    }
+    fclose(fp);
+    return(0);
+}
+
+char * getTSInfo(char *file)
+{
+    // set and reset variables
+    int count = 0;
     tsUnique = 0;
     int lastUnique = 0; 
-    fLen = 0;
-     
+    int lCount = 0;
     FILE *fp;
     fp = fopen(file, "r");
     if ( fp == 0 ) 
@@ -119,19 +144,18 @@ int getFileInfo(char *file)
     }
     while (fgets(line, sizeof line, fp) !=NULL)
     {
-        printf("in while loop");
-        // fLen is part of output and also used to count where we are in the file
+        // lCount is part of output and also used to count where we are in the file
         // copy line to buffered timestamp and truncate
         strcpy(bufTS, line);
         bufTS[15] = '\0';
-        printf("bufts: %s", bufTS);
+        //printf("bufts: %s", bufTS);
         // used for counter in do loop
-        int count = 0;
+        count = 0;
         int matchFound = 0;
         if (tsUnique == 0)
         {
-            strcpy(timeStamps[tsUnique], bufTS);
-            tsFirst[tsUnique] = fLen + 1;
+            strcpy(timeStamps[tsUnique], (char*)&bufTS);
+            tsFirst[tsUnique] = lCount + 1;
             tsUnique = tsUnique + 1;  
             timeStampCounts[tsUnique]++;
         }
@@ -150,13 +174,13 @@ int getFileInfo(char *file)
             strcpy(timeStamps[tsUnique], bufTS);
             if ( tsFirst[tsUnique] == 0)
             {
-                tsFirst[tsUnique] = fLen;
+                tsFirst[tsUnique] = lCount;
             }
-            tsLast[tsUnique] = fLen;
+            tsLast[tsUnique] = lCount;
             tsUnique = tsUnique + 1;  
             timeStampCounts[tsUnique]++;
         }
-        fLen++;
+        lCount++;
     }
     /* SOME GREAT DEBUG INFO HERE */
     if (debug == 1)
@@ -172,7 +196,7 @@ int getFileInfo(char *file)
         }
     }
     fclose(fp);
-    return(0); 
+    return *timeStamps;
 }
 
 /* open file, error if not,
@@ -302,9 +326,6 @@ int main( int argc, char *argv[] ) {
         fileC = malloc(strlen(argv[1]) + 11);
         strcat(fileC, fileA);
         strcat(fileC, ".repair");
-        /*fA = fopen(fileA, "r");
-        fB = fopen(fileB, "r");
-        fC = fopen(fileC, "w+");*/
         if ( debug == 1 ) printf("Repair file: %s\n", fileC);
     }
     else if ( argc == 4 ) /* if 4, take argv[3] as repaired variable */
@@ -315,9 +336,6 @@ int main( int argc, char *argv[] ) {
         strcpy(fileB, argv[2]);
         fileC = malloc(strlen(argv[3]) + 11);
         strcpy(fileC, argv[3]);
-        /*fA = fopen(fileA, "r");
-        fB = fopen(fileB, "r");
-        fC = fopen(fileC, "w+");*/
         if ( debug == 1 ) printf("Repair file: %s\n", fileC);
     }
     else
@@ -329,35 +347,38 @@ int main( int argc, char *argv[] ) {
     }
     /* file length check and array creation */
     getFileInfo(fileA);
-    fALen = fLen;
     int count = 0;
+    //char *timeStampsA;
+    getTSInfo(fileA);
+    int  *timeStampCountsA = ( int *) malloc(tsUnique * sizeof( int ));
+    char **timeStampsA = malloc(tsUnique * sizeof(char *));
+    for (int i = 0; i < tsUnique; i++) timeStampsA[i] = malloc(longestLine * sizeof(char));
+    int *tsFirstA = ( int * ) malloc(tsUnique * sizeof( int ));
+    int *tsLastA = ( int * ) malloc(tsUnique * sizeof( int ));
+    int tsUniqueA = 0;
     // copy the arrays because c... 
-    tsUniqueA = tsUnique;
-    while (count > fALen)
+    while (count < tsUnique)
     {
         tsFirstA[count] = tsFirst[count];
         tsLastA[count] = tsLast[count];
         strcpy(timeStampsA[count], timeStamps[count]);
         timeStampCountsA[count] = timeStampCounts[count];
         count++;
-    }    
+    }
     housekeeping();
     getFileInfo(fileB);
-    tsUniqueB = tsUnique;
+    //tsUniqueB = tsUnique;
     // reset count and copy arrays for file B
     count = 0;
     fBLen = fLen;
-    while (count > fBLen)
+    /*while (count < fBLen)
     {
         tsFirstB[count] = tsFirst[count];
         tsLastB[count] = tsLast[count];
         strcpy(timeStampsB[count], timeStamps[count]);
         timeStampCountsB[count] = timeStampCounts[count];
         count++;
-    }    
-    //char fileATS[fALen][3];
-    //char fileBTS[fBLen][3];
-    
+    }*/
 
     /* count instances of each timestamp and
      * get first and last instances line num
@@ -386,7 +407,7 @@ int main( int argc, char *argv[] ) {
         printf("Total file A length (lines): %d\n", fALen);
         printf("Unique timestamps in File A: %d\n", tsUniqueA);
         printf("Total file B length (lines): %d\n", fBLen);
-        printf("Unique timestamps in File B: %d\n", tsUniqueB);
+        //printf("Unique timestamps in File B: %d\n", tsUniqueB);
         if (findLineByStr(curLine, fileB) == 1)
         {
             printf("FOUND line:\n%s", curLine);
