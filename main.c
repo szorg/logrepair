@@ -323,12 +323,12 @@ int findLineByStr(char *lineIn, char *file)
  * load timestamps
  * variables: Files a+b first instance of timestamp, number of occurrences
  */
-int tsProcess(int aFirst, int aLast, int bFirst, int bLast, int aOcc, int bOcc) 
+int tsProcess(int aFirst, int aLast, int bFirst, int bLast, int aOcc, int bOcc, int aLLine, int bLLine) 
 {
     char **timeStampsWriteA = malloc(aOcc * sizeof(char *));
-    for (int i = 0; i < aOcc; i++) timeStampsWriteA[i] = malloc(longestLineA * sizeof(char));
+    for (int i = 0; i < aOcc; i++) timeStampsWriteA[i] = malloc(aLLine * sizeof(char));
     char **timeStampsWriteB = malloc(bOcc * sizeof(char *));
-    for (int i = 0; i < bOcc; i++) timeStampsWriteB[i] = malloc(longestLineB * sizeof(char));
+    for (int i = 0; i < bOcc; i++) timeStampsWriteB[i] = malloc(bLLine * sizeof(char));
 
     return(0);
 }
