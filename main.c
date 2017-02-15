@@ -303,33 +303,94 @@ int findLineByStr(char *lineIn, char *file)
     // set up counter, reset line variable
     int count = 0;
     strcpy(line, ""); 
+    strcpy(lineOut, ""); 
     // run through lines of file until you find the right one
+    size_t len = strlen(lineIn);
+    // TO CUT OFF NEWLINES WHEN NEEDED:
+    /*if (lineIn[len-1] == '\n') 
+    {
+        lineIn[len-1] = '\0';
+    }*/
     printf("findlinebystr: lineIn: %s\n", lineIn);
     while (fgets(line, sizeof line, fp) !=NULL)
     {
-        if (strstr(line, lineIn))
+        if (strstr(line, lineIn)== 0)
         {
+            printf("match found between line: %s\nAnd lineIn: %s\n", line,lineIn);
             strcpy(lineOut, line);
             fclose(fp);
-            return 1;
+            return 0;
         }
         count++;
     }
     fclose(fp);
-    return 0;
+    return 1;
 }
 
 /* 
  * load timestamps
  * variables: Files a+b first instance of timestamp, number of occurrences
  */
-int tsProcess(int aFirst, int aLast, int bFirst, int bLast, int aOcc, int bOcc, int aLLine, int bLLine) 
+// tsProcess - files (a/b/c), first instance (a/b), last instance (a/b), num of occurences (a/b), longest line (a/b)
+int tsProcess(char *aFile, char *bFile, char *cFile, int aFirst, int aLast, int bFirst, int bLast, int aOcc, int bOcc, int aLLine, int bLLine) 
 {
-    char **timeStampsWriteA = malloc(aOcc * sizeof(char *));
-    for (int i = 0; i < aOcc; i++) timeStampsWriteA[i] = malloc(aLLine * sizeof(char));
-    char **timeStampsWriteB = malloc(bOcc * sizeof(char *));
-    for (int i = 0; i < bOcc; i++) timeStampsWriteB[i] = malloc(bLLine * sizeof(char));
+    // open and verify files
+    FILE *fa;
+    fa = fopen(aFile, "r");
+    FILE *fb;
+    fb = fopen(bFile, "r");
+    FILE *fc;
+    fc = fopen(cFile, "w+"); // NOTE: INTENTIONALLY OVERWRITES REPAIR FILE HERE
+    if ( fa == NULL ) 
+    {
+        printf( "ERROR: File %s was not able to be accessed. Terminating. \n", aFile);
+        exit(0); 
+    }
+    if ( fb == NULL ) 
+    {
+        printf( "ERROR: File %s was not able to be accessed. Terminating. \n", bFile);
+        exit(0); 
+    }
+    if ( fc == NULL ) 
+    {
+        printf( "ERROR: File %s was not able to be accessed. Terminating. \n", cFile);
+        exit(0); 
+    }
+    // set up longest line for file C array
+    int cLLine = 0;
+    int cOcc = (aOcc + bOcc);
+    if (aLLine >= bLLine) cLLine = aLLine;
+    if (bLLine > aLLine) cLLine = bLLine;
+    // set up arrays and malloc
+    char **linesFromA = malloc(aOcc * sizeof(char *));
+    for (int i = 0; i < aOcc; i++) linesFromA[i] = malloc(aLLine * sizeof(char));
+    char **linesFromB = malloc(bOcc * sizeof(char *));
+    for (int i = 0; i < bOcc; i++) linesFromB[i] = malloc(bLLine * sizeof(char));
+    char **linesWriteC = malloc(cOcc * sizeof(char *));
+    for (int i = 0; i < cOcc; i++) linesWriteC[i] = malloc(cLLine * sizeof(char));
+    
 
+    // MUST BE AT END!!
+    // FREE UP MEMORY
+    int count = 0;
+    while (count < aOcc)
+    {
+        free((char*)&linesFromA[count]);
+        count++;
+    }
+    count = 0;
+    while (count < bOcc)
+    {
+        free((char*)&linesFromB[count]);
+        count++;
+    }
+    count = 0;
+    while (count < cOcc)
+    {
+        free((char*)&linesWriteC[count]);
+        count++;
+    }
+    count = 0;
     return(0);
 }
 
@@ -422,6 +483,19 @@ int main( int argc, char *argv[] ) {
         timeStampCountsB[count] = timeStampCounts[count];
         count++;
     }
+    int aTSLine = 0;
+    int bTSLine = 0;
+    printf("aTSLine: %s\n", timeStampsA[aTSLine]);
+    printf("bTSLine: %s\n", timeStampsB[bTSLine]);
+    if (strcmp(timeStampsA[aTSLine],timeStampsA[aTSLine])== 0)
+    {
+        printf("if strcmp was true\n");
+    }
+    else
+    {
+        printf("strcmp didn't match\n");
+    }
+    //tsProcess(fileA, fileB, fileC, timeStampCountsA[aTSLine], timeStampCountsB[bTSLine]
     //housekeeping(1);
     /* SOME GREBT DEBUG INFO HERE */
     /*if (debug > 1)
@@ -449,7 +523,7 @@ int main( int argc, char *argv[] ) {
 
     /* DEBUG BLOCK
      * get and print some info about stuff to show that things work. */
-    debug = 2;
+    //debug = 2;
     if ( debug > 1) {
         curLineNum = 0;
         comLineNum = 12;
@@ -465,7 +539,7 @@ int main( int argc, char *argv[] ) {
         curTS[15] = '\0';
         printf("timestamp: %s\n", curTS);
         /* get line counts */
-        int aTSLine = 4;
+        int aTSLine = 3;
         printf("Total file length (lines): %d\n", fALen);
         printf("Longest line length: %d\n", longestLineA);
         printf("Unique timestamps in File A: %d\n", tsUniqueA);
@@ -488,13 +562,15 @@ int main( int argc, char *argv[] ) {
         printf("Associated First Instance: %d\n", tsFirstB[bTSLine]);
         printf("Associated Last Instance: %d\n", tsLastB[bTSLine]);
         printf("First Full: %s\n", curLine);
-        if (findLineByStr(timeStampsB[bTSLine], fileB))
+        if (findLineByStr(timeStampsA[aTSLine], fileB) == 0)
         {
             printf("FOUND line %s\n", lineOut);
+            printf(" to match %s\n", timeStampsA[aTSLine]);
         }
         else
         {
             printf("couldn't find line %s\n", lineOut);
+            printf(" to match %s\n", timeStampsA[aTSLine]);
         }
     }
             
