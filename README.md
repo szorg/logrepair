@@ -1,19 +1,26 @@
-# Basic overview of process for program
-
-open file a, file b from param
-load all timestamps > log lines in chronological order in to array/key pair
-
-LIST OF FUNCTIONS:
-housekeeping(int level)
-getFileInfo(char *file)
-getTSInfo(char *file, int fLines)
-getLineByNum(int lineNumber, char *file)
-findLineByStr(char *lineIn, char *file)
-// tsProcess - files (a/b/c), first instance (a/b), last instance (a/b), num of occurences (a/b), longest line (a/b)
-tsProcess(char *aFile, char *bFile, char *cFile, int aFirst, int aLast, int bFirst, int bLast, int aOcc, int bOcc, int aLLine, int bLLine)
-main()
+# LOGREPAIR README
 
 
+## Basic Overview
+
+1. open file a, file b from param
+2. get file and timestamp metadata (used to reduce memory allocation, rather than pulling full file in, and reduce delay on disk - instead of reading whole file all at once, we can read a "block" from first to last instance of a particular timestamp to get all of its instances, sometimes this could be slow (if for example for some reason the same timestamp is very early and very late in the file) -- this could also be sped up by recording all of the instances of a timestamp, probably, will look in to that later.
+3. using 'metadata', grab blocks of lines (from first to last instance) and record only the ones starting with the timestamp
+
+
+
+## LIST OF FUNCTIONS:
+
+1. housekeeping(int level)
+2. getFileInfo(char *file)
+3. getTSInfo(char *file, int fLines)
+4. getLineByNum(int lineNumber, char *file)
+5. findLineByStr(char *lineIn, char *file)
+6. tsProcess(char *aFile, char *bFile, char *cFile, int aFirst, int aLast, int bFirst, int bLast, int aOcc, int bOcc, int aLLine, int bLLine)
+    * // tsProcess - files (a/b/c), first instance (a/b), last instance (a/b), num of occurences (a/b), longest line (a/b)
+7. main()
+
+## MISC NOTES
 tsProcess Variables - will need freed:
    linesFromA[aOcc][aLLine]
    linesFromB[bOcc][bLLine]
