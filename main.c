@@ -388,11 +388,7 @@ int tsProcess(char *aFile, char *bFile, char *cFile, int aFirst, int aLast, int 
     return(0);
 }
 
-// find lowest unused timestamp in array, return ONE NUMBER HIGHER (so zero can be used as none)
-// i recognize this creates a "2 = 1 = 0" snake, will try to fix it in the future..
-// to poin to array enty 0, lowestUnused will be set to count + 1, or "2". :|. sorry.
-// when referencing the number that comes out of this, always do x-1
-int findLowestUnused(char *array[], int end)
+int findLowestUnused(char *array[], int end, char *day)
 {
     if (debug > 1) printf("made it in to FLU\n");
     int count = 0;
@@ -400,23 +396,28 @@ int findLowestUnused(char *array[], int end)
     int updated = 0;
     printf("%s\n", array[lowestUnused]);
     printf("%d\n", end);
+    printf("DAY %s\n", day);
     while (count < end)
     {
+        //if (debug > 1) printf("comparing %s to %s\n", array[lowestUnused],array[count]);
         if (strcmp(array[lowestUnused],array[count]) > 0 )
         {
-            lowestUnused = count + 1;
+            lowestUnused = count;
             if (debug > 1) printf("lowestUnused CHANGED to: %d\n", lowestUnused);
             updated;
         }
         count++;
     }
     // if we didn't udpate, set lowestUnused back to 0 so we can test against 0.
-    if (updated = 0) lowestUnused=0; 
     if (debug > 1) printf("lowestUnused post while: %d\n", lowestUnused);
+    if (!strstr(day,(char *)&array[lowestUnused])==0)
+    {
+        lowestUnused = -1;
+    }
     if (debug > 0) 
     {
-        printf("lowestUnused found unique adjusted: %d\n", lowestUnused-1);
-        printf("array[lowestUnused] adjusted: %s\n", array[lowestUnused-1]);
+        printf("lowestUnused found unique: %d\n", lowestUnused);
+        printf("array[lowestUnused]: %s\n", array[lowestUnused]);
     }
     return lowestUnused;
 }
@@ -511,11 +512,46 @@ int main( int argc, char *argv[] ) {
     }
     int aTSLine = 11;
     int bTSLine = 2;
+    // get date from first unique timestamp from file a
+    char runDay[longestLineA];
+    strcpy(runDay,timeStampsA[0]);
+    runDay[6] = '\0';
+    // get higher of two unique timestamp counts
+    int tsUniqueHigh = 0;
+    if (tsUniqueA >= tsUniqueB) tsUniqueHigh = tsUniqueA;
+    if (tsUniqueB > tsUniqueA) tsUniqueHigh = tsUniqueB;
+    if (debug > 0)
+    {
+    printf("runDay: %s\n", runDay);
     printf("aTSLine: %s\n", timeStampsA[aTSLine]);
     printf("bTSLine: %s\n", timeStampsB[bTSLine]);
-    printf("tsUniqueA: %d\n", tsUniqueA);
+    printf("tsUniqueHigh: %d\n", tsUniqueHigh);
+    }
     debug = 2;
-    findLowestUnused(timeStampsA, tsUniqueA);
+    count = 0;
+    while (count > 1); 
+    {
+        int lowUnuA = findLowestUnused(timeStampsA, tsUniqueA, runDay);
+        int lowUnuB = findLowestUnused(timeStampsB, tsUniqueB, runDay);
+        if ((lowUnuA > -1) && (lowUnuB > -1))
+        {
+            printf("both are't complete!!\n");
+        }
+        else if (lowUnuA > -1)
+        {
+            printf("a isn't complete, but b is\n");
+        }
+        else if (lowUnuB > -1)
+        {
+            printf("b isn't complete, but a is\n"); 
+        }
+        else 
+        {
+            printf("timestamps are fully processed\n");
+            count++;
+        }
+    }
+    
     debug = 0;
     if (strcmp(timeStampsA[aTSLine],timeStampsB[bTSLine])== 0)
     {
