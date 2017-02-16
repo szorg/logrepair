@@ -7,23 +7,42 @@
 2. get file and timestamp metadata (used to reduce memory allocation, rather than pulling full file in, and reduce delay on disk - instead of reading whole file all at once, we can read a "block" from first to last instance of a particular timestamp to get all of its instances, sometimes this could be slow (if for example for some reason the same timestamp is very early and very late in the file) -- this could also be sped up by recording all of the instances of a timestamp, probably, will look in to that later.
 3. using 'metadata', grab blocks of lines (from first to last instance) and record only the ones starting with the timestamp
 
+### Goals
+
+* ~~sort by timestamp, retaining original order if timestamp matches (ie. if it were an a spreadsheet, you would add a new column that holds the original line number, then sort by timestamp column followed by the line number column)~~
+* then compare line by line
+* if line doesn't match, forward search until you find a match, or until the timestamp differs.
+... If match not found (ran into next timestamp), use the record.
+... if match found, note that line as being written already and use that line.
 
 
 ## LIST OF FUNCTIONS:
 
 1. housekeeping(int level)
-2. getFileInfo(char *file)
-3. getTSInfo(char *file, int fLines)
-4. getLineByNum(int lineNumber, char *file)
-5. findLineByStr(char *lineIn, char *file)
-6. tsProcess(char *aFile, char *bFile, char *cFile, int aFirst, int aLast, int bFirst, int bLast, int aOcc, int bOcc, int aLLine, int bLLine)
+2. getFileInfo(char \*file)
+3. getTSInfo(char \*file, int fLines)
+4. getLineByNum(int lineNumber, char \*file)
+5. findLineByStr(char \*lineIn, char \*file)
+6. tsProcess(char \*aFile, char \*bFile, char \*cFile, int aFirst, int aLast, int bFirst, int bLast, int aOcc, int bOcc, int aLLine, int bLLine)
     * // tsProcess - files (a/b/c), first instance (a/b), last instance (a/b), num of occurences (a/b), longest line (a/b)
 7. main()
 
 ## TODO
 
+### HIPRI
+
+1. before starting to write, while getting lines from aFirst to aLast, make sure the lines we get are ONLY for the timestamp we want (which will be present fileA[aFirst]
+1. Why aren't we getting from first instance to last instance in output? if there is another stamp in between it only grabs first.. (a, a, b, a, a = a, a)
+1. why is timeStampsA[0] clipping the first char? //printf("tsa0 %s\n", timeStampsA[0])
+    * WHY IS IT INCREMENTING THE FIRST CHARACTER?
+
+### LOPRI
+
 1. convert from using line numbers to using bytes - for performance
     * goal here is to use bytes so fseek can skip straight to the correct point in the file, rather than combing through the file line by line to get to the appropriate line. basically need to turn the tsFirst and tsLast in to positional bytes instead of line numbers.
+1. Reduce memory usage in terms of static arrays created at app open.
+1. Get Apache logs to work
+
 
 ## MISC NOTES
 tsProcess Variables - will need freed:
@@ -32,7 +51,7 @@ tsProcess Variables - will need freed:
    linesWriteC[cOcc][cLLine]
                 free((char*)&timeStamps[count]);
 
-main 
+main
     open files
     count instances of each timestamp
         # syslog ts = 15 char
@@ -104,6 +123,3 @@ static int timeStampCounts[86400]; // 0 = count, 1 = first, 2 = last
 //int timeStampCounts[86400];
 //int timeStampCountsA[86400];
 //int timeStampCountsB[86400];
-
-
-
