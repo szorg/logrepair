@@ -30,6 +30,7 @@ static char line[1024];
 static char lineOut[1024];
 static char curTS[1024];
 static char compTS[1024];
+static int fileCOpened=0;
 //static char bufTS[1024];
 
 /* ints for timestamp counting */
@@ -333,7 +334,17 @@ int tsProcess(char *aFile, char *bFile, char *cFile, int aFirst, int aLast, int 
 {
     // open and verify file
     FILE *fc;
-    fc = fopen(cFile, "w+"); // NOTE: INTENTIONALLY OVERWRITES REPAIR FILE HERE
+    // check if file has been opened yet. If not, create a new EMPTY file for writing.
+    // if it has been opened, open it for appending.
+    if (fileCOpened == 0)
+    {
+        fc = fopen(cFile, "w");
+        fileCOpened = 1;
+    }
+    else
+    {
+        fc = fopen(cFile, "a");
+    }
     if ( fc == NULL ) 
     {
         printf( "ERROR: File %s was not able to be accessed. Terminating. \n", cFile);
@@ -344,6 +355,7 @@ int tsProcess(char *aFile, char *bFile, char *cFile, int aFirst, int aLast, int 
     // cOcc must be total number of occurrences, in case they are somehow *all* separate
     // anything less could mean writing to unallocated memory/errors/badness
     int cOcc = (aOcc + bOcc);
+    //cLLine, longest line, can be the highest of the two (a/b)
     if (aLLine >= bLLine) cLLine = aLLine;
     if (bLLine > aLLine) cLLine = bLLine;
     // set up arrays and malloc
@@ -363,28 +375,6 @@ int tsProcess(char *aFile, char *bFile, char *cFile, int aFirst, int aLast, int 
         printf("lineOut: %s", lineOut);
         count++;
     }
-
-    // MUST BE AT END OF FUNC!!
-    // FREE UP MEMORY
-    count = 0;
-    /*while (count < aOcc)
-    {
-        free((char*)&linesFromA[count]);
-        count++;
-    }
-    count = 0;
-    while (count < bOcc)
-    {
-        free((char*)&linesFromB[count]);
-        count++;
-    }
-    count = 0;
-    while (count < cOcc)
-    {
-        free((char*)&linesWriteC[count]);
-        count++;
-    }
-    count = 0;*/
     return(0);
 }
 
@@ -536,6 +526,7 @@ int main( int argc, char *argv[] ) {
         if ((lowUnuA > -1) && (lowUnuB > -1))
         {
             printf("both are't complete!!\n");
+            tsProcess(fileA, fileB, fileC, tsFirstA[aTSLine], tsLastA[aTSLine], tsFirstB[bTSLine], tsLastB[bTSLine], timeStampCountsA[aTSLine], timeStampCountsB[bTSLine], longestLineA, longestLineB);
         }
         else if (lowUnuA > -1)
         {
@@ -556,7 +547,6 @@ int main( int argc, char *argv[] ) {
     if (strcmp(timeStampsA[aTSLine],timeStampsB[bTSLine])== 0)
     {
         printf("strcmp says equal\n");
-        //tsProcess(fileA, fileB, fileC, tsFirstA[aTSLine], tsLastA[aTSLine], tsFirstB[bTSLine], tsLastB[bTSLine], timeStampCountsA[aTSLine], timeStampCountsB[bTSLine], longestLineA, longestLineB);
     }
     else if (strcmp(timeStampsA[aTSLine],timeStampsB[bTSLine])< 0)
     {

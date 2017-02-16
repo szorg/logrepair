@@ -20,6 +20,11 @@
     * // tsProcess - files (a/b/c), first instance (a/b), last instance (a/b), num of occurences (a/b), longest line (a/b)
 7. main()
 
+## TODO
+
+1. convert from using line numbers to using bytes - for performance
+    * goal here is to use bytes so fseek can skip straight to the correct point in the file, rather than combing through the file line by line to get to the appropriate line. basically need to turn the tsFirst and tsLast in to positional bytes instead of line numbers.
+
 ## MISC NOTES
 tsProcess Variables - will need freed:
    linesFromA[aOcc][aLLine]
