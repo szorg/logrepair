@@ -198,7 +198,7 @@ void getTSInfo(char *file, int fLines)
         {
             if (debug > 1) printf("tsUnique returned 0 in getTSInfo while loop\n");
             strcpy(timeStamps[tsUnique], (char*)&bufTS);
-            tsFirst[tsUnique] = lCount + 1;
+            tsFirst[tsUnique] = lCount;
             tsUnique = tsUnique + 1;  
             if (debug > 1) printf("tsUnique incremented in if zero statement to: %d\n", tsUnique);
             timeStampCounts[tsUnique]++;
@@ -355,9 +355,10 @@ int tsProcess(char *aFile, char *bFile, char *cFile, int aFirst, int aLast, int 
     for (int i = 0; i < cOcc; i++) linesWriteC[i] = malloc(cLLine * sizeof(char));
 
     int count = aFirst;
-    printf("aLast %d aFirst %d\n", aLast, aFirst);
-    while (count < aLast)
+    printf("aLast %d aFirst %d count %d\n", aLast, aFirst, count);
+    while (count <= aLast)
     {
+        printf("count %d aLast %d\n", count, aLast);
         getLineByNum(count, fileA);
         printf("lineOut: %s", lineOut);
         count++;
@@ -387,6 +388,38 @@ int tsProcess(char *aFile, char *bFile, char *cFile, int aFirst, int aLast, int 
     return(0);
 }
 
+// find lowest unused timestamp in array, return ONE NUMBER HIGHER (so zero can be used as none)
+// i recognize this creates a "2 = 1 = 0" snake, will try to fix it in the future..
+// to poin to array enty 0, lowestUnused will be set to count + 1, or "2". :|. sorry.
+// when referencing the number that comes out of this, always do x-1
+int findLowestUnused(char *array[], int end)
+{
+    if (debug > 1) printf("made it in to FLU\n");
+    int count = 0;
+    int lowestUnused = 0;
+    int updated = 0;
+    printf("%s\n", array[lowestUnused]);
+    printf("%d\n", end);
+    while (count < end)
+    {
+        if (strcmp(array[lowestUnused],array[count]) > 0 )
+        {
+            lowestUnused = count + 1;
+            if (debug > 1) printf("lowestUnused CHANGED to: %d\n", lowestUnused);
+            updated;
+        }
+        count++;
+    }
+    // if we didn't udpate, set lowestUnused back to 0 so we can test against 0.
+    if (updated = 0) lowestUnused=0; 
+    if (debug > 1) printf("lowestUnused post while: %d\n", lowestUnused);
+    if (debug > 0) 
+    {
+        printf("lowestUnused found unique adjusted: %d\n", lowestUnused-1);
+        printf("array[lowestUnused] adjusted: %s\n", array[lowestUnused-1]);
+    }
+    return lowestUnused;
+}
 
 /*
  * process timestamp
@@ -476,28 +509,30 @@ int main( int argc, char *argv[] ) {
         timeStampCountsB[count] = timeStampCounts[count];
         count++;
     }
-    int aTSLine = 0;
-    int bTSLine = 0;
+    int aTSLine = 11;
+    int bTSLine = 2;
     printf("aTSLine: %s\n", timeStampsA[aTSLine]);
     printf("bTSLine: %s\n", timeStampsB[bTSLine]);
-    // NEED SORTED TIMESTAMP LIST HERE?
-    // ALSO HOW TO DEAL WITH TIMESTAMPS MISSING..?
+    printf("tsUniqueA: %d\n", tsUniqueA);
+    debug = 2;
+    findLowestUnused(timeStampsA, tsUniqueA);
+    debug = 0;
     if (strcmp(timeStampsA[aTSLine],timeStampsB[bTSLine])== 0)
     {
-        printf("tsLastA[aTSLine], aTSLine: %d, %d\n", tsLastA[aTSLine], aTSLine);
-        tsProcess(fileA, fileB, fileC, tsFirstA[aTSLine], tsLastA[aTSLine], tsFirstB[bTSLine], tsLastB[bTSLine], timeStampCountsA[aTSLine], timeStampCountsB[bTSLine], longestLineA, longestLineB);
+        printf("strcmp says equal\n");
+        //tsProcess(fileA, fileB, fileC, tsFirstA[aTSLine], tsLastA[aTSLine], tsFirstB[bTSLine], tsLastB[bTSLine], timeStampCountsA[aTSLine], timeStampCountsB[bTSLine], longestLineA, longestLineB);
     }
-    else
+    else if (strcmp(timeStampsA[aTSLine],timeStampsB[bTSLine])< 0)
     {
-        // does text from timeStampsA[aTSLine] exist in fileB?
-        // if not, is this the earliest unprocessed timestamp?
-        // if so, dump it to file)
-        // else if not, find earliest unp
-        printf("strcmp didn't match\n");
+        printf("strcmp says 1 is less than 2\n");
+    }
+    else if (strcmp(timeStampsA[aTSLine],timeStampsB[bTSLine])> 0)
+    {
+        printf("strcmp says 2 is less than 1\n");
     }
     //housekeeping(1);
     /* SOME GREBT DEBUG INFO HERE */
-    debug = 2;
+    //debug = 2;
     if (debug > 1)
     {
         printf("recap so far FOR FILE A:\n");
