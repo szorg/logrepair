@@ -35,22 +35,12 @@ static int fileCOpened=0;
 
 /* ints for timestamp counting */
 static int tsFirst[86400]; // first instance of a timestamp
-//static int tsFirstA[86400]; // first instance of a timestamp file A
-//static int tsFirstB[86400]; // first instance of a timestamp file B
 static int tsLast[86400]; // last instance of a timestamp
-//static int tsLastA[86400]; // last instance of a timestamp file A
-//static int tsLastB[86400]; // last instance of a timestamp file B
-static int tsUnique = 0;
-//static int tsUniqueA = 0; // unique timestamps in file A
-//static int tsUniqueB = 0; // unique timestamps in file B
+static int tsUnique = 0; 
 
 // slightly different naming for arrays
 char timeStamps[86400][1024];
-//char timeStampsA[86400][1024];
-//char timeStampsB[86400][1024];
 int timeStampCounts[86400]; 
-//int timeStampCountsA[86400];
-//int timeStampCountsB[86400];
 
 // level 0 = free memory
 // level 1 = empty variables
@@ -167,9 +157,15 @@ int getFileInfo(char *file)
     return(0);
 }
 
+// for each line, check the rest of the file to see if any timestamps match.
+// if a match is found, increase the timeStampCounts[tsUnique] counter.
+// for each new unique timestamp, copy it in to timeStamps[tsUnique] 
+// and increase the tsUnique counter
+// and increase the timeStampCounts[tsUnique] counter 
+// note: this process does not attempt to find out which timestamp is earliest.
 void getTSInfo(char *file, int fLines)
 {
-    if (debug > 0) printf("running getTSInfo with argument: %s\n", file);
+    if (debug > 0) printf("running getTSInfo with arguments: %s :: %d\n", file, fLines);
     // set and reset variables
     FILE *fp;
     fp = fopen(file, "r");
@@ -178,72 +174,71 @@ void getTSInfo(char *file, int fLines)
         printf( "ERROR: File %s was not able to be accessed. Terminating. \n", file);
         exit(0); 
     }
-    if ( debug > 1 ) printf("bout to start that while loop in getTSInfo\n");
+    int fLine = 0;
     while (fgets(line, sizeof line, fp) !=NULL)
     {
-        if (debug > 1 ) printf("started that while loop in getTSInfo\n");
         // copy line to buffered timestamp and truncate
         char bufTS[1024];
         strcpy(bufTS, line);
         bufTS[15] = '\0';
         int count = 0;
         int matchFound = 0;
+        // first timestamp is unique so copy it over
         if (tsUnique == 0)
         {
             strcpy(timeStamps[tsUnique], bufTS);
-                printf("ts[0]: %s\n", timeStamps[0]);
-                sleep(1);
-            debug = 0;
-            tsFirst[tsUnique] = count;
-            tsUnique++;
+            timeStamps[tsUnique][15] = '\0';
+            if (debug > 1) printf("%s ::: %s\n", timeStamps[tsUnique], bufTS);
+            tsFirst[tsUnique] = fLine;
+            tsLast[tsUnique] = fLine;
+            if (debug > 1) printf("tsFirst[tsUnique] : %d\n", tsFirst[tsUnique]);
             timeStampCounts[tsUnique]++;
-            if (debug > 1) printf("tsUnique incremented in if zero statement to: %d\n", tsUnique);
+            tsUnique++;
+            count++;
+            matchFound++;
         }
-        while (count < fLines) {
-            if (strcmp(bufTS, (char*)&timeStamps[tsUnique]) == 0)
+        // compare buffered timestamp with existing unique timestamps
+        // if no match found, add it to the end and increase the unique counters
+        // current tsUnique number is empty
+        while (count < tsUnique) 
+        {
+            if (debug >= 1) printf("START count: %d, tsUnique:  %d\n", count, tsUnique);
+            if (debug > 1) 
+            { 
+                printf("count: %d, tsUnique:  %d\n", count, tsUnique);
+                printf("comparing next two lines: \n");
+                printf("ts[tsU] --%s--\n", timeStamps[count]);
+                printf("bufTS --%s-- fline: %d\n", bufTS, fLine);
+            }
+            if (strcmp(timeStamps[count], bufTS) == 0)
             {
-                printf("ts[0]: %s\n", timeStamps[0]);
-                printf("ts[tsU]: %s\n", timeStamps[tsUnique]);
-                sleep(1);
-                /*printf("bufTS %s\n", bufTS);
-                printf("ts[subcount] %s\n", timeStamps[subcount]);
-                printf("subcount %d\n", subcount);
-                printf("matching in strcmp in tsgetinfo\n");*/
-                // if it exists, increment element at count
+                // buffered line = existing timestamp, increment counter
+                if (debug > 1) printf("match found: %s, %s\n", timeStamps[count], bufTS);
+                tsLast[count] = fLine;
                 timeStampCounts[count]++;
-                tsLast[tsUnique] = count;
-                //printf("tslast %d\n", tsLast[tsUnique - 1]);
-                matchFound = 1;
+                matchFound++;
                 break;
             }
-            /* ORIGINAL OF ABOVE
-            if (strcmp(bufTS, (char*)&timeStamps[subcount]) == 0)
-            {
-                printf("matching in strcmp in tsgetinfo");
-                // if it exists, increment element at count
-                timeStampCounts[count]++;
-                tsLast[tsUnique - 1] = count;
-                printf("tslast %d\n", tsLast[tsUnique - 1]);
-                matchFound = 1;
-            }*/
-            if (matchFound == 0) {
-                strcpy(timeStamps[tsUnique], bufTS);
-               // strcpy(timeStamps[tsUnique], (char*)&bufTS);
-                printf(" matchfound ts[0]: %s\n", timeStamps[0]);
-                if (tsFirst[tsUnique] == 0)
-                {
-                    tsFirst[tsUnique] = count;
-                }
-                tsLast[tsUnique] = count;
-                tsUnique++;  
-                if (debug > 1) printf("tsUnique incremented in if matchfound statement to: %d\n", tsUnique);
-                timeStampCounts[tsUnique]++;
-            }
+            if (debug >= 1) printf("END count: %d, tsUnique:  %d\n", count, tsUnique);
             count++;
         }
+        if (matchFound == 0) 
+        {   
+            // if buffered line wasn't in array,
+            // incrmeent unique, set first/last/inc counters, 
+            // copy string over and truncate
+            if (debug > 1 ) printf("match not found for: %s\n", bufTS);
+            tsFirst[tsUnique] = fLine;
+            tsLast[tsUnique] = fLine;
+            timeStampCounts[tsUnique]++;
+            strcpy(timeStamps[tsUnique], bufTS);
+            timeStamps[tsUnique][15] = '\0';
+            tsUnique++;
+            if (debug > 1 ) printf("ts[tsU] set to: %s\n", timeStamps,timeStamps[tsUnique]);
+        }
+    fLine++;
     }
-    /* SOME GREAT DEBUG INFO HERE */
-    /*if (debug > 0)
+    if (debug > 1)
     {
         printf("recap so far:\n");
         int subCount;
@@ -255,9 +250,8 @@ void getTSInfo(char *file, int fLines)
             printf("first instance :: %d last instance :: %d\n", tsFirst[subCount], tsLast[subCount]);
             subCount++;
         }
-    }*/
+    }
     if (debug > 0) printf("tsUnique in getTSInfo: %d\n", tsUnique);
-    //if (debug > 0) sleep(2);
     fclose(fp);
     return;
 }
@@ -337,18 +331,16 @@ int findLineByStr(char *lineIn, char *file)
  * load timestamps
  * variables: Files a+b first instance of timestamp, number of occurrences
  */
-// tsProcess - files (a/b/c), first instance (a/b), last instance (a/b), num of occurences (a/b), longest line (a/b)
-int tsProcess(char *aFile, char *bFile, char *cFile, int aFirst, int aLast, int bFirst, int bLast, int aOcc, int bOcc, int aLLine, int bLLine) 
+// tsProcess - files (a/b/c), first instance (a/b), last instance (a/b), num of occurences (a/b), longest line (a/b), useFA (1/0), useFB(1/0)
+int tsProcess(char *aFile, char *bFile, char *cFile, int aFirst, int aLast, int bFirst, int bLast, int aOcc, int bOcc, int aLLine, int bLLine, int useFA, int useFB)
 {
-    if (debug > 1) printf("in tsProcess: aFile %s, bFile %s, cFile %s, aFirst %d, aLast %d, bFirst %d, bLast %d, aOcc %d, bOcc %d, aLLine %d, bLLine %d\n", aFile, bFile, cFile, aFirst, aLast, bFirst, bLast, aOcc, bOcc, aLLine, bLLine);
+    debug = 2;
+    if (debug > 1) printf("in tsProcess: aFile %s, bFile %s, cFile %s, aFirst %d, aLast %d, bFirst %d, bLast %d, aOcc %d, bOcc %d, aLLine %d, bLLine %d, aFile %d, bFile %d\n", aFile, bFile, cFile, aFirst, aLast, bFirst, bLast, aOcc, bOcc, aLLine, bLLine, aFile, bFile);
     // open and verify file
     int count = 0;
     int lineCountA = aLast - aFirst + 1;
     int lineCountB = bLast - bFirst + 1;
     int maxLinesC = lineCountA + lineCountB;
-    int lineCountHigh = 0;
-    if (lineCountA >= lineCountB) lineCountHigh = lineCountA;
-    if (lineCountB >= lineCountA) lineCountHigh = lineCountB;
     FILE *fc;
     if (debug > 1) printf("opening fileC\n");
     // check if file has been opened yet. If not, create a new EMPTY file for writing.
@@ -387,25 +379,94 @@ int tsProcess(char *aFile, char *bFile, char *cFile, int aFirst, int aLast, int 
     int *lnUsedB = ( int * ) malloc(lineCountB * sizeof( int ));
     char **linesWriteC = malloc(maxLinesC * sizeof(char *));
     for (int i = 0; i < maxLinesC; i++) linesWriteC[i] = malloc(cLLine * sizeof(char));
-    count = 0;
     // just count lines in file and get longest line
     // we will run from first line to last and pull lines in to array
-    if (debug > 1) printf("aLast %d aFirst %d count %d\n", aLast, aFirst, count);
-    count = aFirst;
-    while (count <= aLast)
+    if (debug > 1) printf("aLast %d aFirst %d inst %d\n", aLast, aFirst, aOcc);
+    if (debug > 1) printf("bLast %d bFirst %d inst %d\n", bLast, bFirst, bOcc);
+    // here we get the "gold" timestamps for use to verify timestamps going forward
+    // "lineOut" is a global var, looking to fix that in the future.
+    char goldTSA[aLLine];
+    getLineByNum(aFirst, fileA);
+    strcpy(goldTSA, lineOut);
+    goldTSA[15] = '\0';
+    char goldTSB[bLLine];
+    getLineByNum(bFirst, fileB);
+    strcpy(goldTSB, lineOut);
+    goldTSB[15] = '\0';
+    if (debug > 1)
     {
-        getLineByNum(count, fileA);
-        strcpy(linesFromA[count], lineOut);
-        count++;
+        printf("TSA: %s\n", goldTSA);
+        printf("TSB: %s\n", goldTSB);
     }
-    count = bFirst;
-    while (count <= bLast)
+    // if timestamps match, grab the appropriate lines
+    // actual number of lines that contain the timestamp..
+    int actLinesA = 0;
+    int actLinesB = 0;
+    if (useFA == 0) lineCountA = -1;
+    if (useFB == 0) lineCountB = -1;
+    count = 0; 
+    if ((strcmp(goldTSA, goldTSB) < 0) && (useFB == 1)) lineCountB = -1;
+    if ((strcmp(goldTSA, goldTSB) > 0) && (useFA == 1)) lineCountA = -1;
+    int lineGet = aFirst;
+    if (debug > 1) printf("timestamps are %s -- %s\n", goldTSA, goldTSB);
+    if (debug > 1) printf("go from line %d to line %d\n", count, aLast);
+    if (debug > 1) printf("number of lines: %d\n", lineCountA);
+    while (lineGet <= aLast)
     {
-        getLineByNum(count, fileB);
-        strcpy(linesFromB[count], lineOut);
-        count++;
+        if (lineCountA < 0){
+            break;
+        }
+        if (debug > 1)printf("getting file line num: %d of %d\n", lineGet, aLast);
+        getLineByNum(lineGet, fileA);
+        
+        if (strstr(lineOut, goldTSA) != NULL)
+        {
+            strcpy(linesFromA[actLinesA], lineOut);
+            if (debug > 1) printf("lfa[%d] : %s", actLinesA, linesFromA[actLinesA]);
+            actLinesA++;
+        }
+        if (actLinesA == aOcc) break;
+        lineGet++;
     }
-    count = 0;
+    lineGet = bFirst;
+    while (lineGet <= bLast)
+    {
+        if (lineCountB < 0) break;
+        if (debug > 1)printf("GET Bgetting line num: %d of %d\n", lineGet, bLast);
+        getLineByNum(lineGet, fileB);
+        
+        if (strstr(lineOut, goldTSB) != NULL)
+        {
+            strcpy(linesFromB[actLinesB], lineOut);
+            if (debug > 1) printf("lfb[%d] : %s", actLinesB, linesFromB[actLinesB]);
+            actLinesB++;
+        }
+        if (actLinesB == bOcc) break;
+        lineGet++;
+    }
+    // print some debug info.
+    if ( debug > 1 )
+    {
+        count = 0;
+        if (actLinesA > 0)
+        {
+            while (count < actLinesA)
+            {
+                printf("linesFromA[%d] : %s", count, linesFromA[count]);
+                count++;
+            }
+        }
+        count = 0;
+        if (actLinesB > 0)
+        {
+            while (count < actLinesB)
+            {
+                printf("linesFromB[%d] : %s", count, linesFromB[count]);
+                count++;
+            }
+        }
+    }
+
     /*
     / SECTION GOAL: this section is what does the goal...:
     / "compare line by line..
@@ -423,22 +484,32 @@ int tsProcess(char *aFile, char *bFile, char *cFile, int aFirst, int aLast, int 
     / TODO - why do we need to do lineCountA+1 when defining to avoid segfault in getlines, but now we need to do lineCountA-1 to avoid segfault here? c y u so weird, what am i missing?
     */
 
+    // get higher of the two lineCounts
+    int lineCountHigh = 0;
+    if (lineCountA >= lineCountB) lineCountHigh = lineCountA;
+    if (lineCountB >= lineCountA) lineCountHigh = lineCountB;
 
     // while on a line number that exists in one of the files..
+    count = 0;
     while (count <= lineCountHigh)
     { 
+        if (debug > 1) printf("count %d <= %d lineCountHigh\n", count, lineCountHigh);
         // if count is less than the number of lines in FILE A
         if (count <= lineCountA-1)
         {
+            if (debug > 1) printf("count %d <= %d lineCountA-1\n", count, lineCountA-1);
             // if line is unused in file A, it's getting printed.
             if (lnUsedA[count] == 0)
             {
+                if (debug > 1) printf("lnUsedA[count] ( %d ) == 0\n", count);
+                if (debug > 1) printf("printing line to file: %s\n", linesFromA[count]);
                 fputs(linesFromA[count], fc);
                 lnUsedA[count] = 1;
                 int subcount = 0;
                 // go through lines from the other file
                 while (subcount <= lineCountB-1)
                 {
+                    if (debug > 1) printf("subcount %d <= %d lineCountB-1\n", subcount, lineCountB);
                     // if strings match, we're ready to print.
                     if (strcmp(linesFromA[count], linesFromB[subcount]) == 0 )
                     {
@@ -480,39 +551,63 @@ int tsProcess(char *aFile, char *bFile, char *cFile, int aFirst, int aLast, int 
         }
         count++;
     }
+    debug = 0;
     return(0);
 }
 
-int findLowestUnused(char *array[], int end, char *day)
+// find the lowest unused timestamp in a given array set.
+int findLowestUnused(char *array[], int used[], int end)
 {
-    if (debug > 1) printf("made it in to FLU\n");
     int count = 0;
     int lowestUnused = 0;
     int updated = 0;
-    printf("array lowU%s\n", array[lowestUnused]);
-    printf("end %d\n", end);
-    printf("DAY %s\n", day);
+    // while in count loop
     while (count < end)
     {
-        //if (debug > 1) printf("comparing %s to %s\n", array[lowestUnused],array[count]);
-        if (strcmp(array[lowestUnused],array[count]) > 0 )
+        // if the first line is unused, that means we WILL have an earliest
+        // but if we don't set it, it won't get set, and will return with failure.
+        // so set it here and break
+        if ((count == 0) && (used[count] == 0))
+        {
+            lowestUnused = 0;
+            if (debug > 1) printf("found count and used[count] both zero\nCHANGED lowestUnused to: %d\n", lowestUnused);
+            updated = 1;
+        }
+        printf("comparing used[%d] %d\n", count, used[count]);
+        // if not used and matches string, set the lowest unused, mark it used.
+        if ((used[count] == 0) && (strcmp(array[lowestUnused],array[count]) > 0 ))
         {
             lowestUnused = count;
             if (debug > 1) printf("lowestUnused CHANGED to: %d\n", lowestUnused);
-            updated;
+            if (debug > 1) printf("relevant line array[lowestUnused]: %s\n", array[lowestUnused]);
+            updated = 1;
         }
         count++;
     }
-    // if we didn't udpate, set lowestUnused back to 0 so we can test against 0.
-    if (debug > 1) printf("lowestUnused post while: %d\n", lowestUnused);
-    if (!strstr(day,(char *)&array[lowestUnused])==0)
+    if (updated == 1)
     {
-        lowestUnused = -1;
+        if (debug > 1) printf("updated, so updating used[lU] to 1.\n");
+        used[lowestUnused] = 1;
     }
-    if (debug > 0) 
+    // if we didn't update, that means we have no unused timestamps. we will return -1.
+    if (updated == 0) 
     {
-        printf("lowestUnused found unique: %d\n", lowestUnused);
-        printf("array[lowestUnused]: %s\n", array[lowestUnused]);
+        if (debug > 1) printf("NOT updated so setting lowestUnused to -1\n");
+        lowestUnused = -1; 
+    }
+    // if we didn't udpate, set lowestUnused to -1 so we can test against 0.
+    if (debug > 1) 
+    {
+        printf("***FINDLOWESTUNUSED DEBUG FOOTER INFO***\n");
+        printf("lowestUnused found to be: %d\n", lowestUnused);
+        if (lowestUnused >= 0)
+        {
+            printf("relevant line array[lowestUnused]: %s\n", array[lowestUnused]);
+            printf("used[lowestUnused] : %d\n", used[lowestUnused]);
+        }
+        printf("end %d\n", end);
+        printf("***END FINDLOWESTUNUSED DEBUG FOOTER INFO***\n");
+        sleep(1);
     }
     return lowestUnused;
 }
@@ -564,8 +659,10 @@ int main( int argc, char *argv[] ) {
     getFileInfo(fileA);
     fALen = fLen;
     getTSInfo(fileA, fALen);
-    printf("ts0: %s\n", timeStamps[0]);
-    sleep(3);
+    if (debug > 1) 
+    {
+        printf("IN MAIN ts0: %s\n", timeStamps[0]);
+    }
     int longestLineA = longestLine;
     int tsUniqueA = tsUnique;
     int  *timeStampCountsA = ( int *) malloc(tsUniqueA * sizeof( int ));
@@ -574,6 +671,7 @@ int main( int argc, char *argv[] ) {
     int *tsFirstA = ( int * ) malloc(tsUniqueA * sizeof( int ));
     int *tsLastA = ( int * ) malloc(tsUniqueA * sizeof( int ));
     // copy the arrays because c... 
+    count = 0;
     while (count < tsUniqueA)
     {
         tsFirstA[count] = tsFirst[count];
@@ -583,7 +681,6 @@ int main( int argc, char *argv[] ) {
         count++;
     }
     housekeeping(1);
-    //if (debug > 0) sleep(3);
     /* file length check and array creation FOR FILE B */
     getFileInfo(fileB);
     count = 0;
@@ -607,13 +704,10 @@ int main( int argc, char *argv[] ) {
         timeStampCountsB[count] = timeStampCounts[count];
         count++;
     }
-    int aTSLine = 11;
-    int bTSLine = 2;
     // get date from first unique timestamp from file a
-    debug = 2;
     //printf("tsa0 %s\n", timeStampsA[1]);
     char runDay[longestLineA];
-    strcpy(runDay,timeStampsA[1]);
+    strcpy(runDay,timeStampsA[0]);
     runDay[6] = '\0';
     // get higher of two unique timestamp counts
     int tsUniqueHigh = 0;
@@ -623,32 +717,56 @@ int main( int argc, char *argv[] ) {
     {
         printf("longestLineA %d\n", longestLineA);
         printf("runDay: %s\n", runDay);
-        printf("aTSLine: %s\n", timeStampsA[aTSLine]);
-        printf("bTSLine: %s\n", timeStampsB[bTSLine]);
         printf("tsUniqueHigh: %d\n", tsUniqueHigh);
     }
-    printf("count: %d\n", count);
+    if (debug > 1) printf("count: %d\n", count);
     count = 0;
-    printf("count: %d\n", count);
-    while (count < 1) 
+    if (debug > 1) printf("count: %d\n", count);
+    // create, malloc and assign values to tsUsed arrays - to track when timestamps get used
+    int *tsUsedA = ( int * ) malloc(tsUniqueB * sizeof( int ));
+    count = 0;
+    while (count <= tsUniqueA) 
     {
-        printf("run day: %s\n", runDay);
-        int lowUnuA = findLowestUnused(timeStampsA, tsUniqueA, runDay);
-        int lowUnuB = findLowestUnused(timeStampsB, tsUniqueB, runDay);
-        printf("lowest unused done\n");
-        if (debug > 1) printf("LUA: %d, LUB: %d,", lowUnuA, lowUnuB);
+        tsUsedA[count] = 0;
+        count++;
+    }
+    int *tsUsedB = ( int * ) malloc(tsUniqueB * sizeof( int ));
+    count = 0;
+    while (count <= tsUniqueB) 
+    {
+        tsUsedB[count] = 0;
+        count++;
+    }
+    if (debug > 1) printf("finished assigning values for used");
+    // while in count loop, call necessary jobs to process and write timestamps.
+    count = 0;
+    while (count < tsUniqueHigh) 
+    {
+        if (debug > 0) printf("run day: %s\n", runDay);
+        // get lowest unused timestamps from arrays, verifying date 
+        printf("tsUA : %d\n", tsUsedA[0]);
+        int lowUnuA = findLowestUnused(timeStampsA, tsUsedA, tsUniqueA);
+        int lowUnuB = findLowestUnused(timeStampsB, tsUsedB, tsUniqueB);
+        if (debug > 0) printf("lowest unused done\n");
+        if (debug > 1) printf("LUA: %d, LUB: %d,\n", lowUnuA, lowUnuB);
+        if ((lowUnuA < 0) && (lowUnuB < 0)) break;
         if ((lowUnuA > -1) && (lowUnuB > -1))
         {
-            if (debug > 1) printf("both are't complete!!\n");
-            tsProcess(fileA, fileB, fileC, tsFirstA[lowUnuA], tsLastA[lowUnuA], tsFirstB[lowUnuB], tsLastB[lowUnuB], timeStampCountsA[lowUnuA], timeStampCountsB[lowUnuB], longestLineA, longestLineB);
+            printf("A not done && B not done\n");
+            printf("starting tsProcesss with: %d tsFirstA[lowUnuA], %d tsLastA[lowUnuA], %d tsFirstB[lowUnuB], %d tsLastB[lowUnuB], %d timeStampCountsA[lowUnuA], %d timeStampCountsB[lowUnuB], %d longestLineA, %d longestLineB\n",tsFirstA[lowUnuA], tsLastA[lowUnuA], tsFirstB[lowUnuB], tsLastB[lowUnuB], timeStampCountsA[lowUnuA], timeStampCountsB[lowUnuB], longestLineA, longestLineB, 1, 1);
+            tsProcess(fileA, fileB, fileC, tsFirstA[lowUnuA], tsLastA[lowUnuA], tsFirstB[lowUnuB], tsLastB[lowUnuB], timeStampCountsA[lowUnuA], timeStampCountsB[lowUnuB], longestLineA, longestLineB, 1, 1);
         }
         else if (lowUnuA > -1)
         {
-            if (debug > 1) printf("a isn't complete, but b is\n");
+            printf("B done, A not done\n");
+            printf("starting tsProcesss with: %d tsFirstA[lowUnuA], %d tsLastA[lowUnuA], %d tsFirstB[lowUnuB], %d tsLastB[lowUnuB], %d timeStampCountsA[lowUnuA], %d timeStampCountsB[lowUnuB], %d longestLineA, %d longestLineB, 3\n",tsFirstA[lowUnuA], tsLastA[lowUnuA], 1, 1, timeStampCountsA[lowUnuA], 1, longestLineA, 1, 1, 0);
+            tsProcess(fileA, fileB, fileC, tsFirstA[lowUnuA], tsLastA[lowUnuA], 1, 1, timeStampCountsA[lowUnuA], 25, longestLineA, 1, 1, 0);
         }
         else if (lowUnuB > -1)
         {
-            if (debug > 1) printf("b isn't complete, but a is\n"); 
+            printf("A done, B not done\n");
+            printf("starting tsProcesss with: %d tsFirstA[lowUnuA], %d tsLastA[lowUnuA], %d tsFirstB[lowUnuB], %d tsLastB[lowUnuB], %d timeStampCountsA[lowUnuA], %d timeStampCountsB[lowUnuB], %d longestLineA, %d longestLineB\n", 1, 1, tsFirstB[lowUnuB], tsLastB[lowUnuB], 1, timeStampCountsB[lowUnuB], 1, longestLineB, 0, 1);
+            tsProcess(fileA, fileB, fileC, 1, 1, tsFirstB[lowUnuB], tsLastB[lowUnuB], 1, timeStampCountsB[lowUnuB], 25, longestLineB, 0, 1);
         }
         else 
         {
@@ -657,22 +775,9 @@ int main( int argc, char *argv[] ) {
         count++;
     }
     
-    // get rid of?
-    /*if (strcmp(timeStampsA[aTSLine],timeStampsB[bTSLine])== 0)
-    {
-        printf("strcmp says equal\n");
-    }
-    else if (strcmp(timeStampsA[aTSLine],timeStampsB[bTSLine])< 0)
-    {
-        printf("strcmp says 1 is less than 2\n");
-    }
-    else if (strcmp(timeStampsA[aTSLine],timeStampsB[bTSLine])> 0)
-    {
-        printf("strcmp says 2 is less than 1\n");
-    }*/
     //housekeeping(1);
     /* SOME GREBT DEBUG INFO HERE */
-    if (debug > 1)
+    /*if (debug > 1)
     {
         printf("recap so far FOR FILE A:\n");
         int subCount;
@@ -686,7 +791,7 @@ int main( int argc, char *argv[] ) {
         printf(" tsUniqueA: %d\n", tsUniqueA);
         printf(" fALen: %d\n", fALen);
         printf("END RECAP FOR FILE A\n");
-    }
+    }*/
 
     /* count instances of each timestamp and
      * get first and last instances line num
@@ -697,8 +802,7 @@ int main( int argc, char *argv[] ) {
 
     /* DEBUG BLOCK
      * get and print some info about stuff to show that things work. */
-    //debug = 2;
-    if ( debug > 1) {
+    if ( debug > 4) {
         curLineNum = 0;
         comLineNum = 12;
         getLineByNum(curLineNum, fileA);
@@ -713,39 +817,13 @@ int main( int argc, char *argv[] ) {
         curTS[15] = '\0';
         printf("timestamp: %s\n", curTS);
         /* get line counts */
-        aTSLine = 0;
         printf("Total file length (lines): %d\n", fALen);
         printf("Longest line length: %d\n", longestLineA);
         printf("Unique timestamps in File A: %d\n", tsUniqueA);
-        printf("File A, Timestamp %d TS: %s\n", aTSLine, timeStampsA[aTSLine]);
-        getLineByNum(tsFirstA[aTSLine], fileA);
-        strcpy(curLine, lineOut);
-        printf("Instances Of Timestamp: %d\n", timeStampCountsA[aTSLine]);
-        printf("Associated First Instance: %d\n", tsFirstA[aTSLine]);
-        printf("Associated Last Instance: %d\n", tsLastA[aTSLine]);
-        printf("First Full: %s\n", curLine);
         printf("\n::: ON TO FILE B INFO :::\n\n");
-        int bTSLine = 0;
         printf("Total file B length (lines): %d\n", fBLen);
         printf("Longest line length: %d\n", longestLineB);
         printf("Unique timestamps in File B: %d\n", tsUniqueB);
-        printf("File B, Timestamp %d TS: %s\n", bTSLine, timeStampsB[bTSLine]);
-        getLineByNum(tsFirstB[bTSLine], fileB);
-        strcpy(curLine, lineOut);
-        printf("Instances Of Timestamp: %d\n", timeStampCountsB[bTSLine]);
-        printf("Associated First Instance: %d\n", tsFirstB[bTSLine]);
-        printf("Associated Last Instance: %d\n", tsLastB[bTSLine]);
-        printf("First Full: %s\n", curLine);
-        if (findLineByStr(timeStampsA[aTSLine], fileB) == 0)
-        {
-            printf("FOUND line %s\n", lineOut);
-            printf(" to match %s\n", timeStampsA[aTSLine]);
-        }
-        else
-        {
-            printf("couldn't find line %s\n", lineOut);
-            printf(" to match %s\n", timeStampsA[aTSLine]);
-        }
     }
             
             

@@ -10,10 +10,10 @@
 ### Goals
 
 * ~~sort by timestamp, retaining original order if timestamp matches (ie. if it were an a spreadsheet, you would add a new column that holds the original line number, then sort by timestamp column followed by the line number column)~~
-* then compare line by line
-* if line doesn't match, forward search until you find a match, or until the timestamp differs.
-... If match not found (ran into next timestamp), use the record.
-... if match found, note that line as being written already and use that line.
+* ~~then compare line by line~~
+* ~~if line doesn't match, forward search until you find a match, or until the timestamp differs.~~
+    * ~~... If match not found (ran into next timestamp), use the record.~~
+    * ~~... if match found, note that line as being written already and use that line.~~
 
 
 ## LIST OF FUNCTIONS:
@@ -42,7 +42,7 @@
     * goal here is to use bytes so fseek can skip straight to the correct point in the file, rather than combing through the file line by line to get to the appropriate line. basically need to turn the tsFirst and tsLast in to positional bytes instead of line numbers.
 1. Reduce memory usage in terms of static arrays created at app open.
 1. Get Apache logs to work
-
+1. Reduce number of global variables (assign strings by function)
 
 ## MISC NOTES
 tsProcess Variables - will need freed:
