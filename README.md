@@ -31,10 +31,6 @@
 
 ### HIPRI
 
-1. before starting to write, while getting lines from aFirst to aLast, make sure the lines we get are ONLY for the timestamp we want (which will be present fileA[aFirst]
-1. Why aren't we getting from first instance to last instance in output? if there is another stamp in between it only grabs first.. (a, a, b, a, a = a, a)
-1. why is timeStampsA[0] clipping the first char? //printf("tsa0 %s\n", timeStampsA[0])
-    * WHY IS IT INCREMENTING THE FIRST CHARACTER?
 
 ### LOPRI
 
