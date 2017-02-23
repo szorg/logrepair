@@ -9,8 +9,10 @@
 
 /* debug levels.
  * 1 = general debug info
+ * 2 = extended debug info
  */
 static int debug = 0;
+
 
 /* other variables */
 static int fALen = 0;
@@ -30,7 +32,7 @@ static char line[1024];
 static char lineOut[1024];
 static char curTS[1024];
 static char compTS[1024];
-static int fileCOpened=0;
+static int fileCOpened = 0;
 //static char bufTS[1024];
 
 /* ints for timestamp counting */
@@ -46,88 +48,6 @@ int timeStampCounts[86400];
 // level 1 = empty variables
 void housekeeping(int level)
 {
-    // resetting some reusable vars just for good measure.
-    int count = 0;
-    if ( level == 0 )
-    {
-        if (fLen > fALen)
-        {
-            while (count > fALen)
-            {
-                free((char*)&tsFirst[count]);
-                free((char*)&tsLast[count]);
-                free((char*)&timeStamps[count]);
-                free((char*)&timeStampCounts[count]); 
-                count++;
-            }
-        } else if (fALen > fBLen)
-        {
-            while (count > fALen)
-            {
-                free((char*)&tsFirst[count]);
-                free((char*)&tsLast[count]);
-                free((char*)&timeStamps[count]);
-                free((char*)&timeStampCounts[count]); 
-                count++;
-            }
-        } else
-        {
-            while (count < fALen)
-            {
-                free((char*)&tsFirst[count]);
-                free((char*)&tsLast[count]);
-                free((char*)&timeStamps[count]);
-                free((char*)&timeStampCounts[count]); 
-                count++;
-            }
-        }
-    }
-    if ( level == 1 ) 
-    { 
-        if (fLen > fALen)
-        {
-            while (count < fALen)
-            {
-                tsFirst[count] = 0;
-                tsLast[count] = 0;
-                strcpy(timeStamps[count], "0");
-                timeStampCounts[count] = 0; 
-                count++;
-            }
-        } else if (fALen < fBLen)
-        {
-            while (count < fALen)
-            {
-                tsFirst[count] = 0;
-                tsLast[count] = 0;
-                strcpy(timeStamps[count], "0");
-                timeStampCounts[count] = 0; 
-                count++;
-            }
-        } else
-        {
-            while (count < fALen)
-            {
-                tsFirst[count] = 0;
-                tsLast[count] = 0;
-                strcpy(timeStamps[count], "0");
-                timeStampCounts[count] = 0; 
-                count++;
-            }
-        }
-    }
-    tsUnique = 0;
-    fLen = 0;
-    curLineNum = 0;
-    comLineNum = 0;
-    strcpy(curLine, "\0");
-    strcpy(comLine, "\0");
-    strcpy(line, "\0");
-    strcpy(lineOut, "\0");
-    strcpy(curTS, "\0");
-    strcpy(compTS, "\0");
-    //strcpy(bufTS, "\0");
-    count = 0;
     return;
 }
 
@@ -165,7 +85,6 @@ int getFileInfo(char *file)
 // note: this process does not attempt to find out which timestamp is earliest.
 void getTSInfo(char *file, int fLines)
 {
-    debug = 2;
     if (debug > 0) printf("running getTSInfo with arguments: %s :: %d\n", file, fLines);
     // set and reset variables
     FILE *fp;
@@ -242,20 +161,20 @@ void getTSInfo(char *file, int fLines)
     if (debug > 1)
     {
         printf("recap so far:\n");
-        int subCount = 0;
         printf(" tsUnique: %d\n", tsUnique);
         printf("\n---\n---\n---\n");
-        while (subCount < tsUnique) 
+        for (int i = 0; i < tsUnique; i++) 
         {
-            printf("unique ts :: %s :: instances: %d\n", timeStamps[subCount], timeStampCounts[subCount]);
-            printf("first instance :: %d last instance :: %d\n", tsFirst[subCount], tsLast[subCount]);
-            subCount++;
+            printf("unique ts :: %s\n", timeStamps[i]);
+            printf("instances: %d\n", timeStampCounts[i]);
+            printf("first instance :: %d\n", tsFirst[i]);
+            printf("last instance :: %d\n", tsLast[i]);
         }
         printf("\n---\n---\n---\n");
     }
     if (debug > 0) printf("tsUnique in getTSInfo: %d\n", tsUnique);
     fclose(fp);
-    debug = 0;
+    fflush(stdout);
     return;
 }
 
@@ -335,15 +254,15 @@ int findLineByStr(char *lineIn, char *file)
  * variables: Files a+b first instance of timestamp, number of occurrences
  */
 // tsProcess - files (a/b/c), first instance (a/b), last instance (a/b), num of occurences (a/b), longest line (a/b), useFA (1/0), useFB(1/0)
-int tsProcess(char *aFile, char *bFile, char *cFile, int aFirst, int aLast, int bFirst, int bLast, int aOcc, int bOcc, int aLLine, int bLLine, int useFA, int useFB)
+int tsProcess(char *cFile, int aFirst, int aLast, int bFirst, int bLast, int aOcc, int bOcc, int aLLine, int bLLine, int useFA, int useFB)
 {
-    debug = 0;
-    if (debug > 1) printf("in tsProcess: aFile %s, bFile %s, cFile %s, aFirst %d, aLast %d, bFirst %d, bLast %d, aOcc %d, bOcc %d, aLLine %d, bLLine %d, aFile %s, bFile %s\n", aFile, bFile, cFile, aFirst, aLast, bFirst, bLast, aOcc, bOcc, aLLine, bLLine, aFile, bFile);
+    if (debug > 1) printf("in tsProcess: cFile %s, aFirst %d, aLast %d, bFirst %d, bLast %d, aOcc %d, bOcc %d, aLLine %d, bLLine %d, useFA %d, useFB %d\n", cFile, aFirst, aLast, bFirst, bLast, aOcc, bOcc, aLLine, bLLine, useFA, useFB);
     // open and verify file
     int count = 0;
     int lineCountA = aLast - aFirst + 1;
     int lineCountB = bLast - bFirst + 1;
     int maxLinesC = lineCountA + lineCountB;
+    if (debug > 1) printf("lineCounts and maxLines set up\n");
     FILE *fc;
     if (debug > 1) 
     {
@@ -355,6 +274,7 @@ int tsProcess(char *aFile, char *bFile, char *cFile, int aFirst, int aLast, int 
     {
         if (debug > 1) printf("\n *** %s BEING OPENED AS NEW FILE -- OVERWRITTEN *** \n\n", cFile);
         fc = fopen(cFile, "w");
+        if (debug > 1) printf("\n *** %s HAS BEEN OPENED *** \n\n", cFile);
         fileCOpened = 1;
     }
     else
@@ -365,7 +285,7 @@ int tsProcess(char *aFile, char *bFile, char *cFile, int aFirst, int aLast, int 
     {
         printf( "ERROR: File %s was not able to be accessed. Terminating. \n", cFile);
         exit(0); 
-}
+    }
     if (debug > 1 ) printf("file c open complete\n");
     // set up longest line for file C array
     int cLLine = 0;
@@ -375,12 +295,15 @@ int tsProcess(char *aFile, char *bFile, char *cFile, int aFirst, int aLast, int 
     //cLLine, longest line, can be the highest of the two (a/b)
     aLLine++;
     bLLine++;
+    if (useFB == 0) bLLine = aLLine;
+    if (useFA == 0) aLLine = bLLine;
     if (aLLine >= bLLine) cLLine = aLLine;
     if (bLLine > aLLine) cLLine = bLLine;
     // array creation and initialization
     // if we're getting a '0' for line count, we can't create our arrays with that, so we will temporarily set it to and longest line 1 so they are not null.
     int lcHoldA = 0;
     int lLineHoldA = 0;
+    if (debug > 1) printf("aLLine, bLLine, cLLine set up\n");
     if (lineCountA < 0) 
     {
         if (debug > 1) printf("LINECOUNTA LESS THAN ZERO\n");
@@ -454,21 +377,29 @@ int tsProcess(char *aFile, char *bFile, char *cFile, int aFirst, int aLast, int 
     // if timestamps match, grab the appropriate lines
     // actual number of lines that contain the timestamp..
     char goldTSA[aLLine];
-    getLineByNum(aFirst, fileA);
-    strcpy(goldTSA, lineOut);
-    goldTSA[15] = '\0';
+    if (useFA > 0)
+    {
+        getLineByNum(aFirst, fileA);
+        strcpy(goldTSA, lineOut);
+        goldTSA[15] = '\0';
+    }
     char goldTSB[bLLine];
-    getLineByNum(bFirst, fileB);
-    strcpy(goldTSB, lineOut);
-    goldTSB[15] = '\0';
+    if (useFB > 0)
+    {
+        getLineByNum(bFirst, fileB);
+        strcpy(goldTSB, lineOut);
+        goldTSB[15] = '\0';
+    }
     int actLinesA = 0;
     int actLinesB = 0;
     if (useFA == 0) lineCountA = -1;
     if (useFB == 0) lineCountB = -1;
     count = 0; 
-    if ((strcmp(goldTSA, goldTSB) < 0) && (useFB == 1)) lineCountB = -1;
-    if ((strcmp(goldTSA, goldTSB) > 0) && (useFA == 1)) lineCountA = -1;
-    int lineGet = aFirst;
+    if ((useFA == 1) && (useFB == 1))
+    {
+        if (strcmp(goldTSA, goldTSB) < 0) lineCountB = -1;
+        if (strcmp(goldTSA, goldTSB) > 0) lineCountA = -1;
+    }
     if (debug > 1) printf("aLast %d aFirst %d inst %d\n", aLast, aFirst, aOcc);
     if (debug > 1) printf("bLast %d bFirst %d inst %d\n", bLast, bFirst, bOcc);
     // here we get the "gold" timestamps for use to verify timestamps going forward
@@ -476,37 +407,58 @@ int tsProcess(char *aFile, char *bFile, char *cFile, int aFirst, int aLast, int 
     if (debug > 1) printf("timestamps are %s -- %s\n", goldTSA, goldTSB);
     if (debug > 1) printf("go from line %d to line %d\n", count, aLast);
     if (debug > 1) printf("number of lines: %d\n", lineCountA);
-    while (lineGet <= aLast)
+    if (useFA == 0)
     {
-        if (lineCountA < 0) break;
-        if (debug > 1)printf("GET Agetting file line num: %d of %d\n", lineGet, aLast);
-        getLineByNum(lineGet, fileA);
-        
-        if (strstr(lineOut, goldTSA) != NULL)
+        aFirst = -1; 
+        aLast = -2; //-2 so lineGet aFirst <= aLast fails
+    }
+    if (useFB == 0)
+    {
+        bFirst = -1;
+        bLast = -2;
+    }
+    int lineGet = aFirst;
+    printf("lineGet A: %d\n", lineGet);
+    debug = 2;
+    if (useFA == 1)
+    {
+        while (lineGet <= aLast)
         {
-            strcpy(linesFromA[actLinesA], lineOut);
-            if (debug > 1) printf("lfa[%d] : %s", actLinesA, linesFromA[actLinesA]);
-            actLinesA++;
+            if (lineCountA < 0) break;
+            if (debug > 1)printf("GET Agetting file line num: %d of %d\n", lineGet, aLast);
+            getLineByNum(lineGet, fileA);
+            
+            if (strstr(lineOut, goldTSA) != NULL)
+            {
+                strcpy(linesFromA[actLinesA], lineOut);
+                if (debug > 1) printf("lfa[%d] : %s", actLinesA, linesFromA[actLinesA]);
+                actLinesA++;
+            }
+            if (actLinesA == aOcc) break;
+            lineGet++;
         }
-        if (actLinesA == aOcc) break;
-        lineGet++;
     }
     lineGet = bFirst;
-    while (lineGet <= bLast)
+    printf("lineGet B: %d\n", lineGet);
+    if (useFB == 1)
     {
-        if (lineCountB < 0) break;
-        if (debug > 1)printf("GET Bgetting line num: %d of %d\n", lineGet, bLast);
-        getLineByNum(lineGet, fileB);
-        
-        if (strstr(lineOut, goldTSB) != NULL)
+        while (lineGet <= bLast)
         {
-            strcpy(linesFromB[actLinesB], lineOut);
-            if (debug > 1) printf("lfb[%d] : %s", actLinesB, linesFromB[actLinesB]);
-            actLinesB++;
+            if (lineCountB < 0) break;
+            if (debug > 1)printf("GET Bgetting line num: %d of %d\n", lineGet, bLast);
+            getLineByNum(lineGet, fileB);
+            
+            if (strstr(lineOut, goldTSB) != NULL)
+            {
+                strcpy(linesFromB[actLinesB], lineOut);
+                if (debug > 1) printf("lfb[%d] : %s", actLinesB, linesFromB[actLinesB]);
+                actLinesB++;
+            }
+            if (actLinesB == bOcc) break;
+            lineGet++;
         }
-        if (actLinesB == bOcc) break;
-        lineGet++;
     }
+    debug = 0;
     // print some debug info.
     if ( debug > 1 )
     {
@@ -552,8 +504,9 @@ int tsProcess(char *aFile, char *bFile, char *cFile, int aFirst, int aLast, int 
     if (lineCountB >= lineCountA) lineCountHigh = lineCountB;
 
     // while on a line number that exists in one of the files..
+    debug = 2;
     count = 0;
-    if (debug > 1)
+    /*if (debug > 1)
     {
         printf("lineCountHigh: %d\n", lineCountHigh);
         int debugcount = 0;
@@ -571,13 +524,13 @@ int tsProcess(char *aFile, char *bFile, char *cFile, int aFirst, int aLast, int 
             debugcount++;
         }
         printf("--- END DEBUG TSPROC lnUsed ---\n");
-    }
-    while (count <= lineCountHigh)
+    }*/
+    while (count < lineCountHigh)
     { 
         int bPrinted = 0;
         if (debug > 1) printf("TSPROCESS : WHILE l1: count %d <= %d lineCountHigh\n", count, lineCountHigh);
         // if count is less than the number of lines in FILE A
-        if (count < lineCountA)
+        if ((useFA > 0) && (count < actLinesA))
         {
             if (debug > 1) printf("TSPROCESS : WILE l2: count %d <= %d lineCountA\n", count, lineCountA);
             printf("lnUsedA[%d] == %d\n", count, lnUsedA[count]);
@@ -611,7 +564,7 @@ int tsProcess(char *aFile, char *bFile, char *cFile, int aFirst, int aLast, int 
             }
         }
         //if we haven't printed any lines from B yet (otherwise b gets 2 chances per round)
-        if (bPrinted == 0)
+        if ((bPrinted == 0) && (useFB > 0))
         {
             if (debug > 1) printf("TSPROCESS : WHILE R2L2 : bPrinted found to be 0\n");
             if (count < lineCountB)
@@ -622,13 +575,14 @@ int tsProcess(char *aFile, char *bFile, char *cFile, int aFirst, int aLast, int 
                 {
                     if (debug > 1) printf("lnUsedB[count] ( %d ) == 0\n", count);
                     if (debug > 1) printf("printing line to file: %s\n", linesFromB[count]);
-                    fputs(linesFromB[count], fc);
+                    if (useFB == 1) fputs(linesFromB[count], fc);
                     lnUsedB[count] = 1;
                 }
             }
         }
         count++;
     }
+    debug = 0;
     /* need to free allocated memory */
     // if we came with -1 for either lineCount, we need to set it to 1 as was done above.
     if (lineCountA < 1) lineCountA = lcHoldA;
@@ -641,8 +595,9 @@ int tsProcess(char *aFile, char *bFile, char *cFile, int aFirst, int aLast, int 
     {
         free(linesFromB[i]);
     }
-    free(lnUsedA);
-    free(lnUsedB);
+    //free(lnUsedA);
+    //free(lnUsedB);
+    
     fclose(fc);
     return(0);
 }
@@ -738,23 +693,22 @@ int tsWrite(int ts)
 int main( int argc, char *argv[] ) {
     if ( debug > 0 ) {printf("argc: %d\n", argc);}
     /* argc should be 3 or 4 for correct execution, die otherwise */
-    if ( argc == 3 ) /* if 3, create .repaired variable */
+    if ( argc > 2 )
     {
         fileA = malloc(strlen(argv[1]) + 1);
         strcpy(fileA, argv[1]);
         fileB = malloc(strlen(argv[2]) + 1);
         strcpy(fileB, argv[2]);
+    }
+    if ( argc == 3 ) /* if 3, create .repaired variable */
+    {
         fileC = malloc(strlen(argv[1]) + 11);
-        strcat(fileC, fileA);
+        strcpy(fileC, fileA);
         strcat(fileC, ".repair");
         if ( debug > 0 ) printf("Repair file: %s\n", fileC);
     }
     else if ( argc == 4 ) /* if 4, take argv[3] as repaired variable */
     {
-        fileA = malloc(strlen(argv[1]) + 1);
-        strcpy(fileA, argv[1]);
-        fileB = malloc(strlen(argv[2]) + 1);
-        strcpy(fileB, argv[2]);
         fileC = malloc(strlen(argv[3]) + 11);
         strcpy(fileC, argv[3]);
         if ( debug > 0 ) printf("Repair file: %s\n", fileC);
@@ -769,6 +723,8 @@ int main( int argc, char *argv[] ) {
     int count = 0;
     /* file length check and array creation  FOR FILE A */
     getFileInfo(fileA);
+    if (debug > 0) printf("getSTInfo File A complete, starting var assignment\n");
+    fflush(stdout);
     fALen = fLen;
     getTSInfo(fileA, fALen);
     if (debug > 1) 
@@ -796,11 +752,17 @@ int main( int argc, char *argv[] ) {
     // TODO: fix and move this in to housekeeping.
     for (int i = 0; i < tsUnique; i++) {
         strcpy(timeStamps[i], "");
+        tsFirst[i] = 0;
+        tsLast[i] = 0;
     }
     longestLine = 0;
     tsUnique = 0;
     /* file length check and array creation FOR FILE B */
+    if (debug > 0) printf("getSTInfo and var assignment for File A complete, starting File B\n");
+    fflush(stdout);
     getFileInfo(fileB);
+    if (debug > 0) printf("getSTInfo File B complete, starting var assignment\n");
+    fflush(stdout);
     count = 0;
     fBLen = fLen;
     if (debug > 0) printf("tsUnique in main: %d\n", tsUnique);
@@ -813,6 +775,7 @@ int main( int argc, char *argv[] ) {
     for (int i = 0; i < tsUniqueB; i++) timeStampsB[i] = malloc(longestLineB * sizeof(char));
     int *tsFirstB = ( int * ) malloc(tsUniqueB * sizeof( int ));
     int *tsLastB = ( int * ) malloc(tsUniqueB * sizeof( int ));
+
     // copy the arrays because c... 
     while (count < tsUniqueB)
     {
@@ -822,11 +785,19 @@ int main( int argc, char *argv[] ) {
         timeStampCountsB[count] = timeStampCounts[count];
         count++;
     }
+    if (debug > 0) printf("getSTInfo and var assignment for File B complete\n");
+    fflush(stdout);
     // get date from first unique timestamp from file a
     //printf("tsa0 %s\n", timeStampsA[1]);
     char runDay[longestLineA];
+    if (debug > 1) printf("creating runDay complete\n");
+    fflush(stdout);
     strcpy(runDay,timeStampsA[0]);
+    if (debug > 1) printf("assigning runDay complete\n");
+    fflush(stdout);
     runDay[6] = '\0';
+    if (debug > 1) printf("truncating runDay complete\n");
+    fflush(stdout);
     // get higher of two unique timestamp counts
     int tsUniqueHigh = 0;
     if (tsUniqueA >= tsUniqueB) tsUniqueHigh = tsUniqueA;
@@ -845,22 +816,22 @@ int main( int argc, char *argv[] ) {
     // create, malloc and assign values to tsUsed arrays - to track when timestamps get used
     int *tsUsedA = ( int * ) malloc(tsUniqueB * sizeof( int ));
     count = 0;
-    while (count <= tsUniqueA) 
+    while (count < tsUniqueA) 
     {
         tsUsedA[count] = 0;
         count++;
     }
     int *tsUsedB = ( int * ) malloc(tsUniqueB * sizeof( int ));
     count = 0;
-    while (count <= tsUniqueB) 
+    while (count < tsUniqueB) 
     {
         tsUsedB[count] = 0;
         count++;
     }
     if (debug > 1) printf("finished assigning values for used");
     // while in count loop, call necessary jobs to process and write timestamps.
-    count = 0;
-    while (count < tsUniqueHigh) 
+    int allTSWritten = 0;
+    while (allTSWritten < 1) 
     {
 	    if (debug > 1) printf("\n\n\nentering big write loop\n");
 	    if (debug > 1) printf("count: %d ---- tsUniqueHigh: %d\n\n\n", count, tsUniqueHigh);
@@ -868,97 +839,109 @@ int main( int argc, char *argv[] ) {
         // get lowest unused timestamps from arrays, verifying date 
         int lowUnuA = findLowestUnused(timeStampsA, tsUsedA, tsUniqueA);
         int lowUnuB = findLowestUnused(timeStampsB, tsUsedB, tsUniqueB);
-        debug = 2;
+        if (debug > 0)
+        {
+            printf("\n -- post lowUnus --\n A: %d, B: %d\n", lowUnuA, lowUnuB);
+        }
         // if one is lower than the other, only the lower will get printed, so mark the higher as unused.
         // if lowUnu comes back negative, that means no unused left, so don't print it.
+        // wrapped in 'for' loop for breaks, could do cases also
+        for (int i = 0; i < 1; i++){
+            if ((lowUnuA >= 0) && (lowUnuB >= 0))
+            {
+                // if A has lower timestamp, mark it used. Same for B. If timestamps match, mark both used.
+                if (strcmp(timeStampsA[lowUnuA], timeStampsB[lowUnuB]) < 0) {
+                    tsUsedA[lowUnuA] = 1;  
+                    lowUnuB = -1;
+                    if (debug > 1) printf("\n---\nA has lower timestamp than B\n");
+                    if (debug > 1) printf("A : %s\n", timeStampsA[lowUnuA]);
+                    break;
+                }
+                if (strcmp(timeStampsA[lowUnuA], timeStampsB[lowUnuB]) > 0) {
+                    if (debug > 1) printf("B has lower timestamp than A\n");
+                    if (debug > 1) printf("B : %s\n", timeStampsB[lowUnuB]);
+                    tsUsedB[lowUnuB] = 1;  
+                    lowUnuA = -1;
+                    break;
+                }
+                if (strcmp(timeStampsA[lowUnuA], timeStampsB[lowUnuB]) == 0) 
+                {
+                    if (debug > 1) {
+                        printf("Timestamps Equal\n");
+                        printf("A : %s\n", timeStampsA[lowUnuA]);
+                        printf("B : %s\n", timeStampsB[lowUnuB]);
+                    }
+                    tsUsedA[lowUnuA] = 1;  
+                    tsUsedB[lowUnuB] = 1;  
+                    break;
+                }
+            }
+            else if (lowUnuA >= 0) {
+                if (debug > 1) printf("A unused, B not unused.\n");
+                if (debug > 1) printf("A : %s\n", timeStampsA[lowUnuA]);
+                tsUsedA[lowUnuA] = 1; // if a is positive but b isn't, mark a as used
+                lowUnuB = -1;
+                break;
+            }
+            else if (lowUnuB >= 0) {
+                tsUsedB[lowUnuB] = 1; // if a isn't positive but b is, mark b as used
+                lowUnuA = -1;
+                if (debug > 1) printf("B unused, A not unused.\n");
+                if (debug > 1) printf("B : %s\n", timeStampsB[lowUnuB]);
+                break;
+            }
+            else {
+                if (debug > 0) printf("No unused timestamps remain.\n");
+            }
+        }
+        if (debug > 1) printf("proceeding to call tsProcess to write.\n");    
         if ((lowUnuA >= 0) && (lowUnuB >= 0))
         {
-            // if A has lower timestamp, mark it used. Same for B. If timestamps match, mark both used.
-            if (strcmp(timeStampsA[lowUnuA], timeStampsB[lowUnuB]) < 0) {
-                tsUsedA[lowUnuA] = 1;  
-                if (debug > 1) printf("\n---\nA has lower timestamp than B\n");
-                if (debug > 1) printf("A : %s\n", timeStampsA[lowUnuA]);
-            }
-            if (strcmp(timeStampsA[lowUnuA], timeStampsB[lowUnuB]) > 0) {
-                tsUsedB[lowUnuB] = 1;  
-                if (debug > 1) printf("B has lower timestamp than A\n");
-                if (debug > 1) printf("B : %s\n", timeStampsB[lowUnuB]);
-            }
-            if (strcmp(timeStampsA[lowUnuA], timeStampsB[lowUnuB]) == 0) 
-            {
-                if (debug > 1) printf("Timestamps Equal\n");
-                tsUsedA[lowUnuA] = 1;  
-                tsUsedB[lowUnuB] = 1;  
-                if (debug > 1) printf("A : %s\n", timeStampsA[lowUnuA]);
-                if (debug > 1) printf("B : %s\n", timeStampsB[lowUnuB]);
-            }
-        }
-        else if (lowUnuA >= 0) {
-            tsUsedA[lowUnuA] = 1; // if a is positive but b isn't, mark a as used
-            if (debug > 1) printf("A unused, B not unused.\n");
-            if (debug > 1) printf("A : %s\n", timeStampsA[lowUnuA]);
-        }
-        else if (lowUnuB >= 0) {
-            tsUsedB[lowUnuB] = 1; // if a isn't positive but b is, mark b as used
-            if (debug > 1) printf("B unused, A not unused.\n");
-            if (debug > 1) printf("B : %s\n", timeStampsB[lowUnuB]);
-        }
-        else {
-            break; // no 
-        }
-        if (debug > 1)
-        {
-            printf("lowUnuA: %d, lowUnuB: %d,\n", lowUnuA, lowUnuB);
-            int debugcount = 0;
-            printf("---DEBUG TABLE tsUsedA---\n");
-            while (debugcount < tsUniqueA)
-            {
-                if (lowUnuA >=0) printf("tsUsedA[%d] :: %d\n", debugcount, tsUsedA[debugcount]);
-                debugcount++;
-            }
-            printf("---END DEBUG TABLE    ---\n");
-            debugcount = 0;
-            printf("---DEBUG TABLE tsUsedB---\n");
-            while (debugcount < tsUniqueB)
-            {
-                if (lowUnuB >=0) printf("tsUsedB[%d] :: %d\n", debugcount, tsUsedB[debugcount]);
-                debugcount++;
-            }
-            printf("---END DEBUG TABLE    ---\n");
-        }
-        debug = 0;
-            
-        if ((lowUnuA > -1) && (lowUnuB > -1))
-        {
             if (debug > 1) {
-                printf("A not done && B not done\n");
-                printf("starting tsProcesss with: %d tsFirstA[lowUnuA], %d tsLastA[lowUnuA], %d tsFirstB[lowUnuB], %d tsLastB[lowUnuB], %d timeStampCountsA[lowUnuA], %d timeStampCountsB[lowUnuB], %d longestLineA, %d longestLineB, 1, 1\n",tsFirstA[lowUnuA], tsLastA[lowUnuA], tsFirstB[lowUnuB], tsLastB[lowUnuB], timeStampCountsA[lowUnuA], timeStampCountsB[lowUnuB], longestLineA, longestLineB, 1, 1);
+                printf("A and B to be written\n");
             }
-            tsProcess(fileA, fileB, fileC, tsFirstA[lowUnuA], tsLastA[lowUnuA], tsFirstB[lowUnuB], tsLastB[lowUnuB], timeStampCountsA[lowUnuA], timeStampCountsB[lowUnuB], longestLineA, longestLineB, 1, 1);
+            tsProcess(fileC, tsFirstA[lowUnuA], tsLastA[lowUnuA], tsFirstB[lowUnuB], tsLastB[lowUnuB], timeStampCountsA[lowUnuA], timeStampCountsB[lowUnuB], longestLineA, longestLineB, 1, 1);
         }
-        else if (lowUnuA > -1)
+        else if (lowUnuA >= 0)
         {
             if (debug > 1)
             {   
-                printf("B done, A not done\n");
-                printf("starting tsProcesss with: %d tsFirstA[lowUnuA], %d tsLastA[lowUnuA], %d tsFirstB[lowUnuB], %d tsLastB[lowUnuB], %d timeStampCountsA[lowUnuA], %d timeStampCountsB[lowUnuB], %d longestLineA, %d longestLineB, 1, 1(A), 0(B)\n",tsFirstA[lowUnuA], tsLastA[lowUnuA], 1, 1, timeStampCountsA[lowUnuA], 1, longestLineA, 1, 1, 0);
+                printf("A to be written, B NOT to be written\n");
             }
-            tsProcess(fileA, fileB, fileC, tsFirstA[lowUnuA], tsLastA[lowUnuA], 1, 1, timeStampCountsA[lowUnuA], 25, longestLineA, 1, 1, 0);
+            tsProcess(fileC, tsFirstA[lowUnuA], tsLastA[lowUnuA], 1, 1, timeStampCountsA[lowUnuA], 25, longestLineA, 11, 1, 0);
         }
-        else if (lowUnuB > -1)
+        else if (lowUnuB >= 0)
         {
             if (debug > 1)
             {
-                printf("A done, B not done\n");
-                printf("starting tsProcesss with: %d tsFirstA[lowUnuA], %d tsLastA[lowUnuA], %d tsFirstB[lowUnuB], %d tsLastB[lowUnuB], %d timeStampCountsA[lowUnuA], %d timeStampCountsB[lowUnuB], %d longestLineA, %d longestLineB 0(A), 1(B)\n", 1, 1, tsFirstB[lowUnuB], tsLastB[lowUnuB], 1, timeStampCountsB[lowUnuB], 1, longestLineB, 0, 1);
+                printf("B to be written, A NOT to be written\n");
             }
-            tsProcess(fileA, fileB, fileC, 1, 1, tsFirstB[lowUnuB], tsLastB[lowUnuB], 1, timeStampCountsB[lowUnuB], 25, longestLineB, 0, 1);
+            tsProcess(fileC, 1, 1, tsFirstB[lowUnuB], tsLastB[lowUnuB], 1, timeStampCountsB[lowUnuB], 25, longestLineB, 0, 1);
         }
         else 
         {
             if (debug > 1) printf("timestamps are fully processed\n");
+            break;
         }
-        count++;
+        if (debug > 1) {
+            printf("-\n-\n-\n");
+            if ((lowUnuA >= 0) && (lowUnuB >= 0)) printf("printed timestamp A+B: %s\n", timeStampsA[lowUnuA]);
+
+            if ((lowUnuA >= 0) && !(lowUnuB >= 0)) printf("printed timestamp A: %s\n", timeStampsA[lowUnuA]);
+            if (!(lowUnuA >= 0) && (lowUnuB >= 0)) printf("printed timestamp B: %s\n", timeStampsB[lowUnuB]);
+            printf("-\n-\n-\n");
+        }
+        // check if all timestamps are written, if unwritten found, set allTSWritten to 0.
+        // if allTSWritten stays at '1', the loop will end.
+        allTSWritten = 1;
+        for (int i = 0; i < tsUniqueA; i++)
+        {
+            if (tsUsedA[i] == 0) allTSWritten = 0;
+        }
+        for (int i = 0; i < tsUniqueB; i++)
+        {
+            if (tsUsedB[i] == 0) allTSWritten = 0;
+        }
     }
     
     //housekeeping(1);
@@ -1013,7 +996,7 @@ int main( int argc, char *argv[] ) {
     }
             
             
-    /* call timestamp LOAD w/ filea_firstinst, fileb_firstinst, totalnum  */
+    /* call timestamp LOAD w/ filea_firstinst, fileb_firstinst, totalnum  
     free(timeStampCountsA);
     for (int i = 0; i < tsUniqueA; i++) free(timeStampsA[i]);
     free(tsFirstA);
@@ -1024,7 +1007,7 @@ int main( int argc, char *argv[] ) {
     free(tsLastB);
     free(fileA);
     free(fileB);
-    free(fileC);
+    free(fileC); */
     //housekeeping(1);
     //housekeeping(0);
     return(0);
