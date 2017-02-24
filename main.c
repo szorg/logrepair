@@ -101,6 +101,7 @@ void getTSInfo(char *file, int fLines)
     if ( fp == 0 ) 
     {
         printf( "ERROR: File %s was not able to be accessed. Terminating. \n", file);
+        syslog(LOG_MAKEPRI(LOG_SYSLOG, LOG_ERR), "ERROR: File %s unable to be accessed. Terminating.", file);
         exit(0); 
     }
     int fLine = 0; // file line counter
@@ -137,6 +138,7 @@ void getTSInfo(char *file, int fLines)
             else
             {
                 printf("ERROR: Filename contains \"apache\" but not \"full\" or \"error\"\n");
+                syslog(LOG_MAKEPRI(LOG_SYSLOG, LOG_ERR), "ERROR: Filename contains \"apache\" but not \"full\" or \"error\". Terminating.");
                 exit(0);
             }
         }
@@ -253,6 +255,7 @@ void getLineByNum(int lineNumber, char *file)
     if ( fp == NULL ) 
     {
         printf( "ERROR: File %s was not able to be accessed. Terminating. \n", file);
+        syslog(LOG_MAKEPRI(LOG_SYSLOG, LOG_ERR), "ERROR: File %s unable to be accessed. Terminating.", file);
         exit(0); 
     }
     // set up counter, reset line variable
@@ -282,6 +285,7 @@ int findLineByStr(char *lineIn, char *file)
     if ( fp == NULL ) 
     {
         printf( "ERROR: File %s was not able to be accessed. Terminating. \n", file);
+        syslog(LOG_MAKEPRI(LOG_SYSLOG, LOG_ERR), "ERROR: File %s unable to be accessed. Terminating.", file);
         exit(0); 
     }
     // set up counter, reset line variable
@@ -347,6 +351,7 @@ int tsProcess(char *cFile, int aFirst, int aLast, int aOcc, int aLLine, char *aT
     if ( fc == NULL ) 
     {
         printf( "ERROR: File %s was not able to be accessed. Terminating. \n", cFile);
+        syslog(LOG_MAKEPRI(LOG_SYSLOG, LOG_ERR), "ERROR: File %s unable to be accessed. Terminating.", cFile);
         exit(0); 
     }
     if (debug > 1 ) printf("file c open complete\n");
@@ -642,7 +647,8 @@ int tsProcess(char *cFile, int aFirst, int aLast, int aOcc, int aLLine, char *aT
         if (count > lineCountHigh) {
             count = 0;
             if (loopcount > lineCountHigh) {
-                printf("FATAL ERROR: Looped through timestamps %d times and still both aren't printed.\n", lineCountHigh);
+                printf("ERROR: Looped through timestamps %d times and still both aren't printed.\n", lineCountHigh);
+                syslog(LOG_MAKEPRI(LOG_SYSLOG, LOG_ERR), "ERROR: Looped through timestamps %d times and still both aren't printed.\n", lineCountHigh);
                 exit(0);
             }
             loopcount++;
@@ -786,6 +792,7 @@ int main( int argc, char *argv[] ) {
         printf ( "ERROR: Params not supplied or supplied incorrectly. \n");
         printf ( "USAGE: : %s file_a file_b <optional: repaired file out>\n", argv[0] );
         printf ( "If repair file out is not specified, will create: file_a.repaired" );
+        syslog(LOG_MAKEPRI(LOG_SYSLOG, LOG_ERR), "ERROR: Incorrect parameters provided. <filea> <fileb> <opt: outputfile>\n");
         exit(0);
     }
     int count = 0;
