@@ -324,7 +324,9 @@ int tsProcess(char *cFile, int aFirst, int aLast, int aOcc, int aLLine, char *aT
 {
     if (debug > 1) printf("in tsProcess: cFile %s, aFirst %d, aLast %d, aOcc %d, aLLine %d, ts: %s, bFirst %d, bLas %d, bOcc %d, bLLine %d, bTS: %s, useFA %d, useFB %d\n", cFile, aFirst, aLast, aOcc, aLLine, aTS, bFirst, bLast, bOcc, bLLine, bTS, useFA, useFB);
     // open and verify file
-    if (debug > 1) printf("aTS: %s\n, bTS: %s\n", aTS, bTS);
+    debug = 2;
+    if (debug > 1) printf("aTS: %s, bTS: %s\n", aTS, bTS);
+    debug = 0;
     int count = 0;
     int lineCountA = aLast - aFirst + 1;
     int lineCountB = bLast - bFirst + 1;
@@ -439,13 +441,12 @@ int tsProcess(char *cFile, int aFirst, int aLast, int aOcc, int aLLine, char *aT
     count = 0; 
     if ((useFA == 1) && (useFB == 1))
     {
-        if (strcmp(aTS, bTS) < 0) lineCountB = -1;
-        if (strcmp(aTS, bTS) > 0) lineCountA = -1;
+        if (strcmp(aTS, bTS) < 0) lineCountB = -1; // if b timestamp is greater, set lineCountB to -1 as we won't want to print any lines from B.
+        if (strcmp(aTS, bTS) > 0) lineCountA = -1; // same for a timestamp
     }
+    //debug 
     if (debug > 1) printf("aLast %d aFirst %d inst %d\n", aLast, aFirst, aOcc);
     if (debug > 1) printf("bLast %d bFirst %d inst %d\n", bLast, bFirst, bOcc);
-    // here we get the "gold" timestamps for use to verify timestamps going forward
-    // "lineOut" is a global var, looking to fix that in the future.
     if (debug > 1) printf("timestamps are %s -- %s\n", aTS, bTS);
     if (debug > 1) printf("go from line %d to line %d\n", count, aLast);
     if (debug > 1) printf("number of lines: %d\n", lineCountA);
@@ -461,40 +462,36 @@ int tsProcess(char *cFile, int aFirst, int aLast, int aOcc, int aLLine, char *aT
     }
     int lineGet = aFirst;
     if (debug > 1) printf("lineGet A: %d\n", lineGet);
+    // if file A timestamps are to be used, grab lines with the current timestamp.
     if (useFA == 1)
     {
         while (lineGet <= aLast)
         {
-            if (lineCountA < 0) break;
-            if (debug > 1)printf("GET Agetting file line num: %d of %d\n", lineGet, aLast);
-            getLineByNum(lineGet, fileA);
-            if (debug > 1) printf("got line: %s", lineOut);
-            if (debug > 1) printf("comparing to: %s\n", aTS);
+            if (lineCountA < 0) break; // if the lineCount is less than 0, break loop
+            getLineByNum(lineGet, fileA); // retrieve appropriate line
             
-            if (strstr(lineOut, aTS) != NULL)
+            if (strstr(lineOut, aTS) != NULL) //if retrieved line contains timestamp
             {
-                strcpy(linesFromA[actLinesA], lineOut);
-                if (debug > 1) printf("lfa[%d] : %s", actLinesA, linesFromA[actLinesA]);
+                strcpy(linesFromA[actLinesA], lineOut); // copy line from output to array
                 actLinesA++;
             }
-            if (actLinesA == aOcc) break;
+            if (actLinesA == aOcc) break; // if actual lines retrieved is equal to number of occurences, break loop.
             lineGet++;
         }
     }
     lineGet = bFirst;
     if (debug > 1) printf("lineGet B: %d\n", lineGet);
+    // if file B is to be used
     if (useFB == 1)
     {
         while (lineGet <= bLast)
         {
             if (lineCountB < 0) break;
-            if (debug > 1)printf("GET Bgetting line num: %d of %d\n", lineGet, bLast);
             getLineByNum(lineGet, fileB);
             
             if (strstr(lineOut, bTS) != NULL)
             {
                 strcpy(linesFromB[actLinesB], lineOut);
-                if (debug > 1) printf("lfb[%d] : %s", actLinesB, linesFromB[actLinesB]);
                 actLinesB++;
             }
             if (actLinesB == bOcc) break;
@@ -502,6 +499,7 @@ int tsProcess(char *cFile, int aFirst, int aLast, int aOcc, int aLLine, char *aT
         }
     }
     // print some debug info.
+    debug = 2;
     if ( debug > 1 )
     {
         count = 0;
@@ -523,6 +521,7 @@ int tsProcess(char *cFile, int aFirst, int aLast, int aOcc, int aLLine, char *aT
             }
         }
     }
+    debug = 0;
 
     /*
     / SECTION GOAL: this section is what does the goal...:
@@ -568,35 +567,39 @@ int tsProcess(char *cFile, int aFirst, int aLast, int aOcc, int aLLine, char *aT
     }*/
     int loopcount = 0;
     int allTSWritten = 0;
+    debug = 2;
     while (allTSWritten < 1)
     { 
+        int aPrinted = 0;
         int bPrinted = 0;
-        if (debug > 1) printf("TSPROCESS : WHILE l1: count %d <= %d lineCountHigh\n", count, lineCountHigh);
         // if count is less than the number of lines in FILE A
-        if ((useFA > 0) && (count < actLinesA))
+        if ((useFA == 1) && (count < actLinesA))
         {
-            if (debug > 1) printf("TSPROCESS : WILE l2: count %d <= %d lineCountA\n", count, lineCountA);
+            if (debug > 1) printf("TSPROCESS : WILE l2: count %d <= %d actLinesA\n", count, actLinesA);
             if (debug > 1)printf("lnUsedA[%d] == %d\n", count, lnUsedA[count]);
             // if line is unused in file A, it's getting printed.
             if (lnUsedA[count] == 0)
             {
                 if (debug > 1) printf("lnUsedA[count] ( %d ) == 0\n", count);
-                if (debug > 1) printf("printing line to file: %s\n", linesFromA[count]);
+                if (debug > 1) printf("printing line from A to file: %s\n", linesFromA[count]);
                 fputs(linesFromA[count], fc);
+                aPrinted = 1;
                 lnUsedA[count] = 1;
                 int subcount = 0;
                 // go through lines from the other file
-                while (subcount < lineCountB)
+                while (subcount < actLinesB)
                 {
-                    if (debug > 1) printf("subcount %d < %d lineCountB\n", subcount, lineCountB);
+                    if (debug > 1) printf("subcount %d < %d actLinesB\n", subcount, actLinesB);
                     // if strings match, we're going to mark it printed in file B.
+                    if (debug > 1) printf("\n---COMPARING---\nA: %s B: %s---END COMPARE---\n", linesFromA[count], linesFromB[subcount]);
                     if (strcmp(linesFromA[count], linesFromB[subcount]) == 0 )
                     {
                         if (debug > 1)printf("SPROCESS: WHILE L5: strcmp A[count] B[subcount] MATCHED\n");
-                        // if file is unused in file B, increment counts for file B and break loop
-                        if (lnUsedB[subcount] == 0)
+                        // if line is unused in file B, increment counts for file B and break loop
+                        if ((useFB == 1) && (lnUsedB[subcount] == 0))
                         {   
                             lnUsedB[subcount] = 1;
+                            if (debug > 1) printf("marked as used in B: %s", linesFromB[subcount]);
                             bPrinted = 1;
                             // break (just this sub while loop) so we don't mark them all used
                             break;
@@ -607,40 +610,58 @@ int tsProcess(char *cFile, int aFirst, int aLast, int aOcc, int aLLine, char *aT
             }
         }
         //if we haven't printed any lines from B yet (otherwise b gets 2 chances per round)
-        if ((bPrinted == 0) && (useFB > 0))
+        if ((bPrinted == 0) && (useFB == 1) && (count < actLinesB))
         {
-            if (debug > 1) printf("TSPROCESS : WHILE R2L2 : bPrinted found to be 0\n");
-            if (count < lineCountB)
+            if (debug > 1) printf("file B not yet printed, getting line");
+            // if line is unused in file B, it's getting printed.
+            if (lnUsedB[count] == 0)
             {
-                if (debug > 1) printf("count %d <= %d lineCountB : USED %d \nLINE %s\n", count, lineCountB, lnUsedB[count], linesFromB[count]);
-                // if line is unused in file B, it's getting printed.
-                if (lnUsedB[count] == 0)
+                if (debug > 1) printf("lnUsedB[count] ( %d ) == 0\n", count);
+                if (debug > 1) printf("printing line from B to file: %s\n", linesFromB[count]);
+                if (useFB == 1) fputs(linesFromB[count], fc);
+                lnUsedB[count] = 1;
+                // go through lines from the other file
+                int subcount = 0;
+                while (subcount < actLinesA)
                 {
-                    if (debug > 1) printf("lnUsedB[count] ( %d ) == 0\n", count);
-                    if (debug > 1) printf("printing line to file: %s\n", linesFromB[count]);
-                    if (useFB == 1) fputs(linesFromB[count], fc);
-                    lnUsedB[count] = 1;
-                }
+                    if (debug > 1) printf("subcount %d < %d actLinesA\n", subcount, actLinesA);
+                    // if strings match, we're going to mark it printed in file A.
+                    if (debug > 1) printf("\n---COMPARING---\nA: %s B: %s---END COMPARE---\n", linesFromA[subcount], linesFromB[count]);
+                    if (strcmp(linesFromB[count], linesFromA[subcount]) == 0 )
+                    {
+                        if (debug > 1)printf("SPROCESS: WHILE L5: strcmp B[count] A[subcount] MATCHED\n");
+                        // if line is unused in file A, increment counts for file A and break loop
+                        if ((useFA == 1) && (lnUsedA[subcount] == 0))
+                        {   
+                            lnUsedA[subcount] = 1;
+                            aPrinted = 1;
+                            if (debug > 1) printf("marked as used in A: %s", linesFromA[subcount]);
+                            // break (just this sub while loop) so we don't mark them all used
+                            break;
+                        }
+                    }
+                    subcount++;
+                } 
             }
         }
         count++;
         // check if all timestamps are written, if unwritten found, set allTSWritten to 0.
-        // if allTSWritten stays at '1', the loop will end.
+        // if allTSWritten stays at '1', the loop will end. 
         allTSWritten = 1;
         if (useFA == 1)
         {
             for (int i = 0; i < actLinesA; i++)
             {
                 if (lnUsedA[i] == 0) allTSWritten = 0;
-                if (debug > 1) printf("found unused timestamp A: %d : %s\n", i, linesFromA[i]);
+                if (debug > 2) printf("found unused timestamp A: %d : %s\n", i, linesFromA[i]);
             }
         }
-        if (useFB == 1)
+        if ((allTSWritten == 1) && (useFB == 1))
         {
             for (int i = 0; i < actLinesB; i++)
             {
                 if (lnUsedB[i] == 0) allTSWritten = 0;
-                if (debug > 1) printf("found unused timestamp B: %d : %s\n", i, linesFromB[i]);
+                if (debug > 2) printf("found unused timestamp B: %d : %s\n", i, linesFromB[i]);
             }
         }
         // if we've made our count above lineCountHigh, reset count.
@@ -654,6 +675,7 @@ int tsProcess(char *cFile, int aFirst, int aLast, int aOcc, int aLLine, char *aT
             loopcount++;
         } 
     }
+    debug = 0;
     /* need to free allocated memory */
     // if we came with -1 for either lineCount, we need to set it to 1 as was done above.
     if (!(lcHoldA == 0)) lineCountA = lcHoldA;
@@ -764,7 +786,7 @@ int tsWrite(int ts)
  */
 int main( int argc, char *argv[] ) {
     // TURN ON SETBUF FOR DEBUG ONLY
-    //setbuf(stdout, NULL);
+    setbuf(stdout, NULL);
     if ( debug > 0 ) {printf("argc: %d\n", argc);}
     /* argc should be 3 or 4 for correct execution, die otherwise */
     if ( argc > 2 )
