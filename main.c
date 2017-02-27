@@ -324,9 +324,7 @@ int tsProcess(char *cFile, int aFirst, int aLast, int aOcc, int aLLine, char *aT
 {
     if (debug > 1) printf("in tsProcess: cFile %s, aFirst %d, aLast %d, aOcc %d, aLLine %d, ts: %s, bFirst %d, bLas %d, bOcc %d, bLLine %d, bTS: %s, useFA %d, useFB %d\n", cFile, aFirst, aLast, aOcc, aLLine, aTS, bFirst, bLast, bOcc, bLLine, bTS, useFA, useFB);
     // open and verify file
-    debug = 2;
     if (debug > 1) printf("aTS: %s, bTS: %s\n", aTS, bTS);
-    debug = 0;
     int count = 0;
     int lineCountA = aLast - aFirst + 1;
     int lineCountB = bLast - bFirst + 1;
@@ -499,7 +497,6 @@ int tsProcess(char *cFile, int aFirst, int aLast, int aOcc, int aLLine, char *aT
         }
     }
     // print some debug info.
-    debug = 2;
     if ( debug > 1 )
     {
         count = 0;
@@ -521,7 +518,6 @@ int tsProcess(char *cFile, int aFirst, int aLast, int aOcc, int aLLine, char *aT
             }
         }
     }
-    debug = 0;
 
     /*
     / SECTION GOAL: this section is what does the goal...:
@@ -567,7 +563,6 @@ int tsProcess(char *cFile, int aFirst, int aLast, int aOcc, int aLLine, char *aT
     }*/
     int loopcount = 0;
     int allTSWritten = 0;
-    debug = 2;
     while (allTSWritten < 1)
     { 
         int aPrinted = 0;
@@ -675,7 +670,6 @@ int tsProcess(char *cFile, int aFirst, int aLast, int aOcc, int aLLine, char *aT
             loopcount++;
         } 
     }
-    debug = 0;
     /* need to free allocated memory */
     // if we came with -1 for either lineCount, we need to set it to 1 as was done above.
     if (!(lcHoldA == 0)) lineCountA = lcHoldA;
