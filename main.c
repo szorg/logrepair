@@ -887,7 +887,7 @@ int main( int argc, char *argv[] ) {
     count = 0;
     if (debug > 1) printf("count: %d\n", count);
     // create, malloc and assign values to tsUsed arrays - to track when timestamps get used
-    int *tsUsedA = ( int * ) malloc(tsUniqueB * sizeof( int ));
+    int *tsUsedA = ( int * ) malloc(tsUniqueA * sizeof( int ));
     count = 0;
     while (count < tsUniqueA) 
     {
