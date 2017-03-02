@@ -4,9 +4,10 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+#include <string.h> // for string manipulation
 #include <unistd.h>
-#include <syslog.h>
+#include <syslog.h> // for syslog support
+#include <math.h> // for rounding
 
 /* debug levels.
  * 1 = general debug info
@@ -32,14 +33,10 @@ static char *fileA;
 static char *fileB;
 static char *fileC;
 /* file counters and buffers */
-static int curLineNum = 1;
-static char curLine[1024];
-static int comLineNum = 0;
-static char comLine[1024];
-static char line[1024];
-static char lineOut[1024];
-static char curTS[1024];
-static char compTS[1024];
+static char line[2048];
+static char lineOut[100][2048];
+static char lineOutbyStr[2048];
+static char curTS[2048];
 static int fileCOpened = 0;
 //static char bufTS[1024];
 
@@ -111,29 +108,61 @@ void getTSInfo(char *file, int fLines)
         // copy line to buffered timestamp and truncate
         char *ret;
         int lineLen = strlen(line);
+        lineLen++;
         char bufTS[lineLen];
         // if filename has "apache" in it, check for either "full" or "error" as their timestamps are in different spots. if neither are present, terminate.
         // if "apache" isn't present, assume regular syslog and use start of file.
-        if (strstr(file, "apache"))
+        if (strstr(file, "apache") != NULL)
         {
             apache = 1;
-            if (strstr(file, "full"))
+            if (strstr(file, "full") != NULL)
             {
                 if (debug > 1) printf("apache FULL detected\n");
                 apacheFull = 1;
                 ret = strchr(line, colon);
-                memmove(ret, ret+1, strlen(ret));
-                ret[8] = '\0';
-                strcpy(bufTS, ret);
+                if ((strlen(line) > 8) && strstr(line, ":") != NULL)
+                {
+                    if (strlen(ret) > 8)
+                    {
+                        ret[9] = '\0';
+                        strcpy(bufTS, ret);
+                    }
+                    else
+                    {
+                    strcpy(bufTS, "DONOTPRINTME!!!2");
+                    syslog(LOG_MAKEPRI(LOG_SYSLOG, LOG_ERR), "ERROR: Line found that contains minimum 8 characters, but does not appear to have timestamp. The integrity of this result is in question, but will continue.");
+                    }
+                }
+                else
+                {
+                    strcpy(bufTS, "DONOTPRINTME!!!2");
+                    syslog(LOG_MAKEPRI(LOG_SYSLOG, LOG_ERR), "ERROR: Line found that either lacks a minimum 8 characters, or does not appear to have timestamp. The integrity of this result is in question, but will continue.");
+                }
+            
             }
-            else if (strstr(file, "error"))
+            else if (strstr(file, "error") != NULL)
             {
+                if (debug > 1) printf("apache FULL detected\n");
                 apacheErr = 1;
-                if (debug > 1) printf("apache ERROR detected\n");
-                ret = strchr(line, space);
-                memmove(ret, ret+1, strlen(ret));
-                ret[8] = '\0';
-                strcpy(bufTS, ret);
+                ret = strchr(line, colon);
+                if ((strlen(line) > 8) && strstr(line, ":") != NULL)
+                {
+                    if (strlen(ret) > 8)
+                    {
+                        ret[9] = '\0';
+                        strcpy(bufTS, ret);
+                    }
+                    else
+                    {
+                        strcpy(bufTS, "DONOTPRINTME!!!2");
+                        syslog(LOG_MAKEPRI(LOG_SYSLOG, LOG_ERR), "ERROR: Line found that contains minimum 8 characters, but does not appear to have timestamp. The integrity of this result is in question, but will continue.");
+                    }
+                }
+                else
+                {
+                    strcpy(bufTS, "DONOTPRINTME!!!2");
+                    syslog(LOG_MAKEPRI(LOG_SYSLOG, LOG_ERR), "ERROR: Line found that either lacks a minimum 8 characters, or does not appear to have timestamp. The integrity of this result is in question, but will continue.");
+                }
             }
             else
             {
@@ -158,12 +187,12 @@ void getTSInfo(char *file, int fLines)
             if (apache == 0) 
             {
                 strcpy(timeStamps[tsUnique], bufTS);
-                timeStamps[tsUnique][15] = '\0';
+                //timeStamps[tsUnique][15] = '\0';
             }
             else 
             {
                 strcpy(timeStamps[tsUnique], bufTS);
-                timeStamps[tsUnique][8] = '\0';
+                //timeStamps[tsUnique][9] = '\0';
             }
             if (debug > 1) printf("%s ::: %s\n", timeStamps[tsUnique], bufTS);
             tsFirst[tsUnique] = fLine;
@@ -216,7 +245,7 @@ void getTSInfo(char *file, int fLines)
             else 
             {
                 strcpy(timeStamps[tsUnique], bufTS);
-                timeStamps[tsUnique][8] = '\0';
+                timeStamps[tsUnique][9] = '\0';
             }
             tsUnique++;
             if (debug > 1 ) printf("ts[tsU] set to: %s\n", timeStamps[tsUnique]);
@@ -246,7 +275,7 @@ void getTSInfo(char *file, int fLines)
  * go through lines
  * stop once at correct number 
  * using variable lineOut as output. */
-void getLineByNum(int lineNumber, char *file) 
+int getLineByNum(int lineStart, int lineEnd, char *file) 
 {
     // open file
     FILE *fp;
@@ -260,19 +289,22 @@ void getLineByNum(int lineNumber, char *file)
     }
     // set up counter, reset line variable
     int count = 0;
+    int copiedLines = 0;
     strcpy(line, ""); 
     // run through lines of file until you find the right one
     while (fgets(line, sizeof line, fp) !=NULL)
     {
-        if (count == lineNumber)
+        if (count > lineEnd) break;
+        if (count >= lineStart)
         {
-            strcpy(lineOut, line);
+            strcpy(lineOut[copiedLines], line);
             //lineOut[strlen(line)] = '\0';
+            copiedLines++;
         }
         count++;
     }
     fclose(fp);
-    return;
+    return copiedLines;
 }
 
 /* take string and file, return true/false */
@@ -291,7 +323,6 @@ int findLineByStr(char *lineIn, char *file)
     // set up counter, reset line variable
     int count = 0;
     strcpy(line, ""); 
-    strcpy(lineOut, ""); 
     // run through lines of file until you find the right one
     size_t len = strlen(lineIn);
     // TO CUT OFF NEWLINES WHEN NEEDED:
@@ -302,10 +333,10 @@ int findLineByStr(char *lineIn, char *file)
     printf("findlinebystr: lineIn: %s\n", lineIn);
     while (fgets(line, sizeof line, fp) !=NULL)
     {
-        if (strstr(line, lineIn)== 0)
+        if (strstr(line, lineIn) != NULL)
         {
             printf("match found between line: %s\nAnd lineIn: %s\n", line,lineIn);
-            strcpy(lineOut, line);
+            strcpy(lineOutbyStr, line);
             fclose(fp);
             return 0;
         }
@@ -322,7 +353,8 @@ int findLineByStr(char *lineIn, char *file)
 // tsProcess - char *cFile, int aFirst, int aLast, int aOcc, int aLLine, char *aTS, int bFirst, int bLast, int bOcc, int bLLine, char *bTS, int useFA, int useFB)
 int tsProcess(char *cFile, int aFirst, int aLast, int aOcc, int aLLine, char *aTS, int bFirst, int bLast, int bOcc, int bLLine, char *bTS, int useFA, int useFB)
 {
-    if (debug > 1) printf("in tsProcess: cFile %s, aFirst %d, aLast %d, aOcc %d, aLLine %d, ts: %s, bFirst %d, bLas %d, bOcc %d, bLLine %d, bTS: %s, useFA %d, useFB %d\n", cFile, aFirst, aLast, aOcc, aLLine, aTS, bFirst, bLast, bOcc, bLLine, bTS, useFA, useFB);
+    if (debug > 1) printf("aTS: %s, bTS: %s, aOcc: %d, bOcc: %d\n", aTS, bTS, aOcc, bOcc);
+    //if (debug > 1) printf("in tsProcess: cFile %s, aFirst %d, aLast %d, aOcc %d, aLLine %d, ts: %s, bFirst %d, bLas %d, bOcc %d, bLLine %d, bTS: %s, useFA %d, useFB %d\n", cFile, aFirst, aLast, aOcc, aLLine, aTS, bFirst, bLast, bOcc, bLLine, bTS, useFA, useFB);
     // open and verify file
     if (debug > 1) printf("aTS: %s, bTS: %s\n", aTS, bTS);
     int count = 0;
@@ -460,41 +492,91 @@ int tsProcess(char *cFile, int aFirst, int aLast, int aOcc, int aLLine, char *aT
     }
     int lineGet = aFirst;
     if (debug > 1) printf("lineGet A: %d\n", lineGet);
+    if (debug > 1) 
+    { 
+        if (useFA == 1) printf("aFirst: %d, aLast %d, aOcc %d\n", aFirst, aLast, aOcc);
+        if (useFB == 1) printf("bFirst: %d, bLast %d, bOcc %d\n", bFirst, bLast, bOcc);
+    }
     // if file A timestamps are to be used, grab lines with the current timestamp.
     if (useFA == 1)
     {
-        while (lineGet <= aLast)
+        int pages = round((aLast - aFirst) / 100); // 100 results per "page"
+        if (pages == 0) pages = 1; // can't go in as zero
+        if (debug > 1) printf("pages: %d, aTS: %s\n", pages, aTS);
+        int pageStart = 0;
+        int pageEnd = 0;
+        for (int i = 0; i < pages; i++) // for each 100 results, get 100 results and map them
         {
-            if (lineCountA < 0) break; // if the lineCount is less than 0, break loop
-            getLineByNum(lineGet, fileA); // retrieve appropriate line
-            
-            if (strstr(lineOut, aTS) != NULL) //if retrieved line contains timestamp
+            if (actLinesA >= aOcc) break; // if actual lines retrieved is equal to number of occurences, break loop.
+            pageStart = aFirst + (i * 100); // this will be where the page starts as an offset from aFirst 
+            if ((aFirst + pageStart) > aLast) // if less than 100 lines remain, end at aLast
             {
-                strcpy(linesFromA[actLinesA], lineOut); // copy line from output to array
-                actLinesA++;
+                pageEnd = aLast; 
             }
-            if (actLinesA == aOcc) break; // if actual lines retrieved is equal to number of occurences, break loop.
-            lineGet++;
+            else {
+                pageEnd = (pageStart + 100); // else end at start + 100
+            }
+            if (debug > 1) printf("calling getLineByNum: pageStart: %d, pageEnd: %d\n", pageStart, pageEnd);
+            int linesRetrieved = getLineByNum(pageStart, pageEnd, fileA);
+            int x = 0;
+            while(x < linesRetrieved)
+            {
+                if (strstr(lineOut[x], aTS) != NULL) //if retrieved line contains timestamp
+                {
+                    if (debug > 1) printf("A checking return item: %d, text: %s", x, lineOut[x]);
+                    strcpy(linesFromA[actLinesA], lineOut[x]); // copy line from output to array
+                    actLinesA++;
+                }
+                if (actLinesA == aOcc) break; // if actual lines retrieved is equal to number of occurences, break loop.
+                x++;
+            }
         }
+    }
+    for (int i = 0; i > 100; i++)
+    {
+        strcpy(lineOut[i], ""); // clear lineOut
     }
     lineGet = bFirst;
     if (debug > 1) printf("lineGet B: %d\n", lineGet);
     // if file B is to be used
     if (useFB == 1)
     {
-        while (lineGet <= bLast)
+        int pages = round((bLast - bFirst) / 100); // 100 results per "page"
+        if (pages == 0) pages = 1; // can't go in as zero
+        if (debug > 1) printf("pages: %d, bTS: %s\n", pages, bTS);
+        int pageStart = 0;
+        int pageEnd = 0;
+        for (int i = 0; i < pages; i++) // for each 100 results, get 100 results and map them
         {
-            if (lineCountB < 0) break;
-            getLineByNum(lineGet, fileB);
-            
-            if (strstr(lineOut, bTS) != NULL)
+            if (actLinesB >= bOcc) break; // if actual lines retrieved is equal to number of occurences, break loop.
+            pageStart = bFirst + (i * 100); // this will be where the page starts as an offset from aFirst 
+            if ((bFirst + pageStart) > bLast) // if more less than 100 lines remain, end at aLast
             {
-                strcpy(linesFromB[actLinesB], lineOut);
-                actLinesB++;
+                pageEnd = bLast; 
             }
-            if (actLinesB == bOcc) break;
-            lineGet++;
+            else {
+                pageEnd = (pageStart + 100); // else end at start + 100
+            }
+            if (debug > 1) printf("calling getLineByNum: pageStart: %d, pageEnd: %d\n", pageStart, pageEnd);
+            int linesRetrieved = getLineByNum(pageStart, pageEnd, fileB);
+            int x = 0;
+            while (x < linesRetrieved)
+            {
+                if (strstr(lineOut[x], bTS) != NULL) //if retrieved line contains timestamp
+                {
+                    if (debug > 1) printf("B checking return item: %d, text: %s", x, lineOut[x]);
+                    strcpy(linesFromB[actLinesB], lineOut[x]); // copy line from output to array
+                    actLinesB++;
+                }
+                if (actLinesB == bOcc) break; // if actual lines retrieved is equal to number of occurences, break loop.
+                x++;
+            }
         }
+    }
+    if (debug > 1)
+    {
+        if (useFA == 1) printf("aTS: %s, count: %d\n", aTS, actLinesA);
+        if (useFB == 1) printf("bTS: %s, count: %d\n", bTS, actLinesB);
     }
     // print some debug info.
     if ( debug > 1 )
@@ -502,6 +584,7 @@ int tsProcess(char *cFile, int aFirst, int aLast, int aOcc, int aLLine, char *aT
         count = 0;
         if (actLinesA > 0)
         {
+            printf("timestamp: %s\n", aTS);
             while (count < actLinesA)
             {
                 printf("linesFromA[%d] : %s", count, linesFromA[count]);
@@ -511,6 +594,7 @@ int tsProcess(char *cFile, int aFirst, int aLast, int aOcc, int aLLine, char *aT
         count = 0;
         if (actLinesB > 0)
         {
+            printf("timestamp: %s\n", bTS);
             while (count < actLinesB)
             {
                 printf("linesFromB[%d] : %s", count, linesFromB[count]);
@@ -518,7 +602,6 @@ int tsProcess(char *cFile, int aFirst, int aLast, int aOcc, int aLLine, char *aT
             }
         }
     }
-
     /*
     / SECTION GOAL: this section is what does the goal...:
     / "compare line by line..
@@ -542,27 +625,16 @@ int tsProcess(char *cFile, int aFirst, int aLast, int aOcc, int aLLine, char *aT
 
     // while on a line number that exists in one of the files..
     count = 0;
-    /*if (debug > 1)
-    {
-        printf("lineCountHigh: %d\n", lineCountHigh);
-        int debugcount = 0;
-        printf("--- DEBUG TSPROC lnUsed SECOND ---\n");
-        while (debugcount < lineCountA)
-        {
-            printf("lnUsedA[%d] : %d : %s\n", debugcount, lnUsedA[debugcount], linesFromA[debugcount]);
-            debugcount++;
-        }
-        printf("--- ON TO B ---\n");
-        debugcount = 0;
-        while (debugcount < lineCountB)
-        {
-            printf("lnUsedB[%d] : %d : %s\n", debugcount, lnUsedB[debugcount], linesFromB[debugcount]);
-            debugcount++;
-        }
-        printf("--- END DEBUG TSPROC lnUsed ---\n");
-    }*/
     int loopcount = 0;
     int allTSWritten = 0;
+    int aMarked = 0; // used for tracking debug things
+    int aPR = 0; // used for tracking debug things
+    int bMarked = 0; // used for tracking debug things
+    int bPR = 0; // used for tracking debug things
+    if (debug > 1)
+    {
+        printf("actLinesA: %d\n, actLinesB: %d\n", actLinesA, actLinesB);
+    }
     while (allTSWritten < 1)
     { 
         int aPrinted = 0;
@@ -579,23 +651,25 @@ int tsProcess(char *cFile, int aFirst, int aLast, int aOcc, int aLLine, char *aT
                 if (debug > 1) printf("printing line from A to file: %s\n", linesFromA[count]);
                 fputs(linesFromA[count], fc);
                 aPrinted = 1;
+                aPR++;
                 lnUsedA[count] = 1;
                 int subcount = 0;
                 // go through lines from the other file
                 while (subcount < actLinesB)
                 {
-                    if (debug > 1) printf("subcount %d < %d actLinesB\n", subcount, actLinesB);
+                    if (debug > 2) printf("subcount %d < %d actLinesB\n", subcount, actLinesB);
                     // if strings match, we're going to mark it printed in file B.
-                    if (debug > 1) printf("\n---COMPARING---\nA: %s B: %s---END COMPARE---\n", linesFromA[count], linesFromB[subcount]);
+                    if (debug > 2) printf("\n---COMPARING---\nA: %s B: %s---END COMPARE---\n", linesFromA[count], linesFromB[subcount]);
                     if (strcmp(linesFromA[count], linesFromB[subcount]) == 0 )
                     {
-                        if (debug > 1)printf("SPROCESS: WHILE L5: strcmp A[count] B[subcount] MATCHED\n");
+                        if (debug > 1)printf("A TSPROCESS: WHILE L5: strcmp A[count] B[subcount] MATCHED\n");
                         // if line is unused in file B, increment counts for file B and break loop
                         if ((useFB == 1) && (lnUsedB[subcount] == 0))
                         {   
                             lnUsedB[subcount] = 1;
                             if (debug > 1) printf("marked as used in B: %s", linesFromB[subcount]);
                             bPrinted = 1;
+                            bMarked++;
                             // break (just this sub while loop) so we don't mark them all used
                             break;
                         }
@@ -613,23 +687,25 @@ int tsProcess(char *cFile, int aFirst, int aLast, int aOcc, int aLLine, char *aT
             {
                 if (debug > 1) printf("lnUsedB[count] ( %d ) == 0\n", count);
                 if (debug > 1) printf("printing line from B to file: %s\n", linesFromB[count]);
-                if (useFB == 1) fputs(linesFromB[count], fc);
+                fputs(linesFromB[count], fc);
+                bPR++;
                 lnUsedB[count] = 1;
                 // go through lines from the other file
                 int subcount = 0;
                 while (subcount < actLinesA)
                 {
-                    if (debug > 1) printf("subcount %d < %d actLinesA\n", subcount, actLinesA);
+                    if (debug > 2) printf("subcount %d < %d actLinesA\n", subcount, actLinesA);
                     // if strings match, we're going to mark it printed in file A.
-                    if (debug > 1) printf("\n---COMPARING---\nA: %s B: %s---END COMPARE---\n", linesFromA[subcount], linesFromB[count]);
+                    if (debug > 2) printf("\n---COMPARING---\nA: %s B: %s---END COMPARE---\n", linesFromA[subcount], linesFromB[count]);
                     if (strcmp(linesFromB[count], linesFromA[subcount]) == 0 )
                     {
-                        if (debug > 1)printf("SPROCESS: WHILE L5: strcmp B[count] A[subcount] MATCHED\n");
+                        if (debug > 1)printf("B TSPROCESS: WHILE L5: strcmp B[count] A[subcount] MATCHED\n");
                         // if line is unused in file A, increment counts for file A and break loop
                         if ((useFA == 1) && (lnUsedA[subcount] == 0))
                         {   
                             lnUsedA[subcount] = 1;
                             aPrinted = 1;
+                            aMarked++;
                             if (debug > 1) printf("marked as used in A: %s", linesFromA[subcount]);
                             // break (just this sub while loop) so we don't mark them all used
                             break;
@@ -670,6 +746,26 @@ int tsProcess(char *cFile, int aFirst, int aLast, int aOcc, int aLLine, char *aT
             loopcount++;
         } 
     }
+    if (debug > 1)
+    {
+        if (useFA == 1) printf("aOcc: %d, aTS: %s\n", aOcc, aTS);
+        if (useFB == 1) printf("bOcc: %d, bTS: %s\n", bOcc, bTS);
+        printf("loopcount: %d\naMarked: %d\nbMarked: %d\n,aPR: %d\nbPR: %d\n", loopcount, aMarked, bMarked, aPR, bPR); 
+        if ((useFA == 1) && (useFB == 1))
+        {
+            if ((aOcc + bOcc) != (aPR + bPR + aMarked + bMarked)) printf("---\nMISTMATCH\n---");
+        }
+        if ((useFA == 1) && (useFB != 1))
+        {
+            if (aOcc != (aPR + bPR + aMarked + bMarked)) printf("---\nMISTMATCH\n---");
+        }
+        if ((useFA != 1) && (useFB == 1))
+        {
+            if (bOcc != (aPR + bPR + aMarked + bMarked)) printf("---\nMISTMATCH\n---");
+        }
+        printf("---------\n");
+    }
+    fflush(fc); // flush stdout (print lines to file)
     /* need to free allocated memory */
     // if we came with -1 for either lineCount, we need to set it to 1 as was done above.
     if (!(lcHoldA == 0)) lineCountA = lcHoldA;
@@ -780,8 +876,10 @@ int tsWrite(int ts)
  */
 int main( int argc, char *argv[] ) {
     // TURN ON SETBUF FOR DEBUG ONLY
-    setbuf(stdout, NULL);
-    if ( debug > 0 ) {printf("argc: %d\n", argc);}
+    //setbuf(stdout, NULL);
+    if ( debug > 0 ) {
+        printf("argc: %d\n", argc);
+    }
     /* argc should be 3 or 4 for correct execution, die otherwise */
     if ( argc > 2 )
     {
@@ -840,6 +938,7 @@ int main( int argc, char *argv[] ) {
         strcpy(timeStamps[i], "");
         tsFirst[i] = 0;
         tsLast[i] = 0;
+        timeStampCounts[i] = 0;
     }
     longestLine = 0;
     tsUnique = 0;
@@ -850,6 +949,7 @@ int main( int argc, char *argv[] ) {
     count = 0;
     fBLen = fLen;
     if (debug > 0) printf("tsUnique in main: %d\n", tsUnique);
+    tsUnique = 0;
     getTSInfo(fileB, fBLen);
     int longestLineB = longestLine;
     int tsUniqueB = tsUnique;
@@ -1048,17 +1148,6 @@ int main( int argc, char *argv[] ) {
     /* DEBUG BLOCK
      * get and print some info about stuff to show that things work. */
     if ( debug > 1) {
-        curLineNum = 0;
-        comLineNum = 12;
-        getLineByNum(curLineNum, fileA);
-        strcpy(curLine, lineOut);
-        printf("curLine %d\n", curLineNum);
-        printf("line text: %s\n", curLine);
-        getLineByNum(comLineNum, fileB);
-        strcpy(comLine, lineOut);
-        printf("comLine %d\n", comLineNum);
-        printf("line text: %s\n", comLine);
-        strcpy(curTS, lineOut);
         curTS[15] = '\0';
         printf("timestamp: %s\n", curTS);
         /* get line counts */
