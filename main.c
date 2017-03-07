@@ -2,10 +2,9 @@
  * Evan Miller
  * Feb 2017
  */
-#include <stdio.h>
-#include <stdlib.h>
+#include <stdio.h> // for file io
+#include <stdlib.h> // for use of "NULL" 
 #include <string.h> // for string manipulation
-#include <unistd.h>
 #include <syslog.h> // for syslog support
 #include <math.h> // for rounding
 
