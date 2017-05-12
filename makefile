@@ -1,2 +1,2 @@
 logrepair: main.c
-	gcc main.c -o logrepair -lm
+	gcc main.c -std=c99 -o logrepair -lm
